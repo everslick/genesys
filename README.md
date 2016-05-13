@@ -3,7 +3,7 @@
 Genesys is a complete framework for writing a ESP8266 firmware. It provides
 a solid starting point for your own functions and makes it easy to develop,
 debug and deploy firmware binaries. Genesys is built on top of the ESP8266
-Arduino core and support additional libraries like websockets and mqtt.
+Arduino core and supports additional libraries like websockets and mqtt.
 
 Genesys is targeted at serious developers and thus is best built with
 make instead of Arduino IDE. Building with Arduino might still work, though.
@@ -36,26 +36,28 @@ along with Foobar.  If not, see <http://www.gnu.org/licenses/>.
 
 Installation
 ------------
-Besides the ESP-Arduino-Core (https://github.com/esp8266/Arduino) Gensys
-needs some 3rd party libraries such as arduinoWebSockets[https://github.com/Links2004/arduinoWebSockets] and esp-mqtt-arduino[https://github.com/i-n-g-o/esp-mqtt-arduino]. The following script can be
+Besides the ESP-Arduino-Core <https://github.com/esp8266/Arduino> Gensys
+needs some 3rd party libraries such as arduinoWebSockets
+<https://github.com/Links2004/arduinoWebSockets> and esp-mqtt-arduino
+<https://github.com/i-n-g-o/esp-mqtt-arduino>. The following script can be
 used to set up the build environment and dependencies (change as needed):
-
-https://github.com/esp8266/Arduino
 
 ```
 mkdir -p ~/Devel/ESP8266
 cd ~/Devel/ESP8266
 git clone git@github.com:esp8266/Arduino.git
-cd Arduino/libraries
+cd Arduino/tools
+python get.py
+cd ../libraries
 git clone git@github.com:Links2004/arduinoWebSockets.git
 git clone git@github.com:i-n-g-o/esp-mqtt-arduino.git
-cd -
+cd ~/Devel/ESP8266
 git clone git@github.com:everslick/genesys.git
 cd genesys
 
 ```
 
-Now you can create a file called Makefile.config and populate with the
+Now you can create a file called Makefile.config and populate it with the
 following content:
 
 ```
