@@ -150,3 +150,15 @@ DONE
 BUGS
 ----
 * build with Arduino IDE fails in load.c complaining about size_t
+
+Screenshots
+-----------
+![Home Page](https://cloud.githubusercontent.com/assets/1909551/15258778/b8e6b23c-194d-11e6-841f-43ec02a8ce49.jpg)
+
+![Sys Page](https://cloud.githubusercontent.com/assets/1909551/15258779/b8f6ccb2-194d-11e6-9cf8-c637fa1e35ec.jpg)
+
+![Login Page](https://cloud.githubusercontent.com/assets/1909551/15258780/b8ff3fe6-194d-11e6-8f3d-9ab61ec862d0.jpg)
+
+![Info Page](https://cloud.githubusercontent.com/assets/1909551/15258781/b9069de0-194d-11e6-8f8b-bfa347236899.jpg)
+
+![Configuration Page](https://cloud.githubusercontent.com/assets/1909551/15258782/b90a8180-194d-11e6-8404-b343963755b6.jpg)
