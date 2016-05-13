@@ -113,9 +113,9 @@ char *log_color_str(char buf[], uint8_t col);
 /**
   To print a text to all set up log channels use this macro.
 
-  Messages logged by %log() show up in the specified LogChannel. The   \n
+  Messages logged by %log_print() show up in the specified LogChannel. The  \n
   only way to suppress them is to switch of logging completely by defining  \n
-  RELEASE.
+  RELEASE to 1.
 */
 #define log_print(...) logprint(__VA_ARGS__)
 
