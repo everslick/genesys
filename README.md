@@ -55,7 +55,7 @@ cd genesys
 
 ```
 
-now you can create a file called makefile.config and populate with the
+Now you can create a file called Makefile.config and populate with the
 following content:
 
 ```
@@ -104,6 +104,21 @@ DEFAULT_MQTT_INTERVAL = 5
 Those are the default values that get compiled into the firmware binary so
 you don't have to do a configuration cycle after each installation. These
 values are also used for a factory reset (long press of PROG button on GPIO 0).
+
+Build
+-----
+
+GNU/Make is used for the build process. The Makefile has some user configurable
+variables in the top that you have to change according to your setup and
+hardware such as the size and layout of your flash chip. For compilation and
+deployment the following make targets can be used:
+
+- make usb (build then upload via USB using esptool)
+- make ota (build then update over the air using wget)
+- make usblog (open serial terminal for debug logs using miniterm.py)
+- make otalog (listen on a UDP port for incomming debug logs using netcat)
+- make clean (remove all object and dependency files for a fresh build)
+- make stack (paste a stack dump into vim to get a stacktrace)
 
 TODO
 ----
