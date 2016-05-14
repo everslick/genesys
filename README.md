@@ -134,8 +134,8 @@ hardcoded SSID of esp-XXXXXX, XXXXXX being the last 3 bytes of the MAC address.
 
 If no username and password have been set yet, the webserver will redirect to
 the initial configuration page. Here you can set the username/password for the
-webserver, the WiFi Ap to connect to as well as the WPA2 password, and its
-network configuration (DHCP or static IP).
+webserver, the WiFi to connect to as well as the WPA2 password, and its network
+configuration (DHCP or static IP).
 
 ![Initial Setup Page](https://cloud.githubusercontent.com/assets/1909551/15268288/e9aea0dc-19d9-11e6-9d4a-381ba123d03e.jpg)
 
