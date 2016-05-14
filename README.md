@@ -41,7 +41,7 @@ along with Genesys.  If not, see <http://www.gnu.org/licenses/>.
 
 Installation
 ------------
-Besides the ESP-Arduino-Core <https://github.com/esp8266/Arduino> Gensys
+Besides the ESP-Arduino-Core <https://github.com/esp8266/Arduino> Genesys
 needs some 3rd party libraries such as arduinoWebSockets
 <https://github.com/Links2004/arduinoWebSockets> and esp-mqtt-arduino
 <https://github.com/i-n-g-o/esp-mqtt-arduino>. The following script can be
