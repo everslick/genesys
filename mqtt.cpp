@@ -124,7 +124,7 @@ void ICACHE_FLASH_ATTR mqtt_register_event_cb(void (*cb)(uint16_t)) {
 
 bool ICACHE_FLASH_ATTR mqtt_init(void) {
   if (!config->mqtt_enabled) {
-    log_print(F("MQTT: mqtt disabled in config"));
+    log_print(F("MQTT: mqtt disabled in config\n"));
     return (false);
   }
 
