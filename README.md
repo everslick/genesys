@@ -13,10 +13,15 @@ Main Features
 * initial setup via soft accesspoint
 * username/password authentication for webserver
 * debug logs via UDP socket and/or serial port
+* disable logs when compiling RELEASE version
+* allows commands to be sent via debug log back channel
 * rudimentary visualization of CPU load, memory usage and network traffic
 * over the air updates
 * support for websockets, MQTT, mDNS
 * millisecond precision NTP implementation
+* support static IP configuration as well as DHCP
+* support factory reset via hardware button
+* status led
 * eye candy
 
 License
@@ -54,7 +59,6 @@ git clone git@github.com:i-n-g-o/esp-mqtt-arduino.git
 cd ~/Devel/ESP8266
 git clone git@github.com:everslick/genesys.git
 cd genesys
-
 ```
 
 Now you can create a file called Makefile.config and populate it with the
@@ -109,7 +113,6 @@ values are also used for a factory reset (long press of PROG button on GPIO 0).
 
 Build
 -----
-
 GNU/Make is used for the build process. The Makefile has some user configurable
 variables in the top that you have to change according to your setup and
 hardware such as the size and layout of your flash chip. For compilation and
@@ -122,43 +125,61 @@ deployment the following make targets can be used:
 - make clean (remove all object and dependency files for a fresh build)
 - make stack (paste a stack dump into vim to get a stacktrace)
 
+Setup
+-----
+After the ESP8266 has booted you can connect to the webinterface. Either via
+the soft accesspoint of the ESP or, if you have set up the default configuration
+properly, by its IP address or mDNS name. The soft accesspoint starts with a
+hardcoded SSID of esp-XXXXXX, XXXXXX being the last 3 bytes of the MAC address.
+
+If no username and password have been set yet, the webserver will redirect to
+the initial configuration page. Here you can set the username/password for the
+webserver, the WiFi Ap to connect to as well as the WPA2 password, and its
+network configuration (DHCP or static IP).
+
+![Initial Setup Page](https://cloud.githubusercontent.com/assets/1909551/15268288/e9aea0dc-19d9-11e6-9d4a-381ba123d03e.jpg)
+
+Pressing [Save] stores the configuration in the EEPROM (flash) and reboots the
+device. Connecting again will redirect you to the login page.
+
+![Login Page](https://cloud.githubusercontent.com/assets/1909551/15258780/b8ff3fe6-194d-11e6-8f3d-9ab61ec862d0.jpg)
+
+After successful login you see the example hompage showing the firmware version,
+uptime, current time (UTC) and the actual value from the ADC. The page gets
+refreshed every two seconds.
+
+![Home Page](https://cloud.githubusercontent.com/assets/1909551/15258778/b8e6b23c-194d-11e6-841f-43ec02a8ce49.jpg)
+
+Configuration
+-------------
+The configuration page allows setting up of more parameters then was possible in
+the initial setup. Here you can also define the mDNS name, MQTT publishing
+intervals, or NTP servers.
+
+![Configuration Page](https://cloud.githubusercontent.com/assets/1909551/15258782/b90a8180-194d-11e6-8404-b343963755b6.jpg)
+
+When the firmware was not built as RELEASE version (by setting BUILD_RELEASE = 1
+in the Makefile or Makefile.config), there are additional pages accessable that
+provide information about the hardware and resource usage. For one there ist the
+[Info] page, that shows static information about the firmware and hardware.
+
+![Info Page](https://cloud.githubusercontent.com/assets/1909551/15258781/b9069de0-194d-11e6-8f8b-bfa347236899.jpg)
+
+The [Sys] page gives insights to the resources currently consumed (heap, cpu, net)
+and shows the last 20 loglines.
+
+![Sys Page](https://cloud.githubusercontent.com/assets/1909551/15258779/b8f6ccb2-194d-11e6-9cf8-c637fa1e35ec.jpg)
+
 TODO
 ----
 * improved documentation
+* configurable soft AP SSID
 * disable password fields when wifi is unencrypted
 * TLS support for MQTT
 * WiFi mesh networking
 * support configuration changes via MQTT subscription
 * relais output via MQTT subscription
 
-DONE
-----
-* refactor log to not use any dynamically allocated memory
-* implement clock_gettime() and clock_settime()
-* username and password authentication for webserver
-* properly disable text entries in conf form
-* support static IP configuration
-* cpu. mem and net meters
-* start SoftAP for initial configuration
-* support factory default reset via hardware button
-* setting of ntp server
-* enable redirecting of debug logs to network
-* disable logs when compiling RELEASE version
-* get rid of globals.h
-* status led
-
 BUGS
 ----
 * build with Arduino IDE fails in load.c complaining about size_t
-
-Screenshots
------------
-![Home Page](https://cloud.githubusercontent.com/assets/1909551/15258778/b8e6b23c-194d-11e6-841f-43ec02a8ce49.jpg)
-
-![Sys Page](https://cloud.githubusercontent.com/assets/1909551/15258779/b8f6ccb2-194d-11e6-9cf8-c637fa1e35ec.jpg)
-
-![Login Page](https://cloud.githubusercontent.com/assets/1909551/15258780/b8ff3fe6-194d-11e6-8f3d-9ab61ec862d0.jpg)
-
-![Info Page](https://cloud.githubusercontent.com/assets/1909551/15258781/b9069de0-194d-11e6-8f8b-bfa347236899.jpg)
-
-![Configuration Page](https://cloud.githubusercontent.com/assets/1909551/15258782/b90a8180-194d-11e6-8404-b343963755b6.jpg)
