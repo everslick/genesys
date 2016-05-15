@@ -40,19 +40,19 @@ static uint32_t led_last_toggle_time[16];
 
 static bool event_sent[BUTTON_EVENTS];
 
-static bool ICACHE_FLASH_ATTR gpio_is_led(uint8_t led) {
+static bool gpio_is_led(uint8_t led) {
   if (led == GPIO_LED0) return (true);
   if (led == GPIO_LED1) return (true);
 
   return (false);
 }
 
-void ICACHE_FLASH_ATTR gpio_register_button_cb(void (*cb)(uint16_t)) {
+void gpio_register_button_cb(void (*cb)(uint16_t)) {
   // set button callback function
   button_cb = cb;
 }
 
-void ICACHE_FLASH_ATTR gpio_init(void) {
+void gpio_init(void) {
   pinMode(GPIO_BUTTON, INPUT);
 
   for (int led=0; led<16; led++) {
@@ -66,7 +66,7 @@ void ICACHE_FLASH_ATTR gpio_init(void) {
   gpio_relais_off();
 }
 
-void ICACHE_FLASH_ATTR gpio_poll(void) {
+void gpio_poll(void) {
   int state = digitalRead(GPIO_BUTTON);
 
   if (state != button_last_state) {
@@ -116,28 +116,28 @@ void ICACHE_FLASH_ATTR gpio_poll(void) {
   }
 }
 
-void ICACHE_FLASH_ATTR gpio_led_on(uint8_t led) {
+void gpio_led_on(uint8_t led) {
   if (gpio_is_led(led)) {
     digitalWrite(led, HIGH);
     led_toggle_period[led] = 0;
   }
 }
 
-void ICACHE_FLASH_ATTR gpio_led_off(uint8_t led) {
+void gpio_led_off(uint8_t led) {
   if (gpio_is_led(led)) {
     digitalWrite(led, LOW);
     led_toggle_period[led] = 0;
   }
 }
 
-void ICACHE_FLASH_ATTR gpio_led_toggle(uint8_t led) {
+void gpio_led_toggle(uint8_t led) {
   if (gpio_is_led(led)) {
     digitalWrite(led, !digitalRead(led));
     led_last_toggle_time[led] = millis();
   }
 }
 
-void ICACHE_FLASH_ATTR gpio_led_blink(uint8_t led, uint16_t ms) {
+void gpio_led_blink(uint8_t led, uint16_t ms) {
   if (gpio_is_led(led)) {
     gpio_led_on(led);
     led_toggle_period[led] = ms;
@@ -145,17 +145,17 @@ void ICACHE_FLASH_ATTR gpio_led_blink(uint8_t led, uint16_t ms) {
   }
 }
 
-void ICACHE_FLASH_ATTR gpio_relais_on(void) {
+void gpio_relais_on(void) {
   digitalWrite(GPIO_RELAIS, HIGH);
   log_print(F("GPIO: relais on pin %i is on\n"), GPIO_RELAIS);
 }
 
-void ICACHE_FLASH_ATTR gpio_relais_off(void) {
+void gpio_relais_off(void) {
   digitalWrite(GPIO_RELAIS, LOW);
   log_print(F("GPIO: relais on pin %i is off\n"), GPIO_RELAIS);
 }
 
-void ICACHE_FLASH_ATTR gpio_relais_toggle(void) {
+void gpio_relais_toggle(void) {
   digitalWrite(GPIO_RELAIS, !digitalRead(GPIO_RELAIS));
   log_print(F("GPIO: relais on pin %i toggles\n"), GPIO_RELAIS);
 }

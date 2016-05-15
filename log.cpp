@@ -69,20 +69,20 @@ static uint16_t log_lines_count = 0;
 
 static void (*message_cb)(const char *) = NULL;
 
-static int ICACHE_FLASH_ATTR modulo(int a, int b) {
+static int modulo(int a, int b) {
   int r = a % b;
 
   return ((r < 0) ? r + b : r);
 }
 
-static LogLine & ICACHE_FLASH_ATTR log_line(uint16_t index) {
+static LogLine & log_line(uint16_t index) {
   int start = log_lines_index - log_lines_count;
   int idx = modulo(start + index, log_lines_count);
 
   return (log_lines[idx]);
 }
 
-static void ICACHE_FLASH_ATTR lognet(const char *str, uint16_t len = 0) {
+static void lognet(const char *str, uint16_t len = 0) {
   static bool first_log_line = true;
 
   udp->beginPacket(udp_ip, udp_port);
@@ -104,7 +104,7 @@ static void ICACHE_FLASH_ATTR lognet(const char *str, uint16_t len = 0) {
   system_delay(3);
 }
 
-static void ICACHE_FLASH_ATTR logserial(const char *str, uint16_t len = 0) {
+static void logserial(const char *str, uint16_t len = 0) {
   static bool first_log_line = true;
 
   if (first_log_line) {
@@ -117,7 +117,7 @@ static void ICACHE_FLASH_ATTR logserial(const char *str, uint16_t len = 0) {
   Serial.write(str, len);
 }
 
-static void ICACHE_FLASH_ATTR lognet(const LogLine &line) {
+static void lognet(const LogLine &line) {
   char buffer[32], col_text[8], col_time[8], buf_time[16];
 
   int length = snprintf(buffer, sizeof (buffer), "%s[%s]%s ",
@@ -130,7 +130,7 @@ static void ICACHE_FLASH_ATTR lognet(const LogLine &line) {
   lognet(line.text, line.length);
 }
 
-static void ICACHE_FLASH_ATTR logserial(const LogLine &line) {
+static void logserial(const LogLine &line) {
   char buffer[32], col_text[8], col_time[8], buf_time[16];
 
   int length = snprintf(buffer, sizeof (buffer), "%s[%s]%s ",
@@ -143,7 +143,7 @@ static void ICACHE_FLASH_ATTR logserial(const LogLine &line) {
   logserial(line.text, line.length);
 }
 
-static void ICACHE_FLASH_ATTR print(const char *buffer, int length) {
+static void print(const char *buffer, int length) {
   if (length >= MAX_LINE_LEN) {
     length = strlen(buffer);
   }
@@ -161,7 +161,7 @@ static void ICACHE_FLASH_ATTR print(const char *buffer, int length) {
   }
 }
 
-static const String ICACHE_FLASH_ATTR html_color(uint8_t col) {
+static const String html_color(uint8_t col) {
   switch (col) {
     case COL_BLACK:   return ("black");
     case COL_RED:     return ("red");
@@ -176,7 +176,7 @@ static const String ICACHE_FLASH_ATTR html_color(uint8_t col) {
   return ("white");
 }
 
-void ICACHE_FLASH_ATTR loginit(void) {
+void loginit(void) {
   char col[8];
 
   if (log_channels & LOG_CHANNEL_SERIAL) {
@@ -205,7 +205,7 @@ void ICACHE_FLASH_ATTR loginit(void) {
   lograw(log_color_str(col, COL_DEFAULT));
 }
 
-void ICACHE_FLASH_ATTR logdumpraw(String &str) {
+void logdumpraw(String &str) {
   char time[16];
 
   for (int i=0; i<log_lines_count; i++) {
@@ -218,7 +218,7 @@ void ICACHE_FLASH_ATTR logdumpraw(String &str) {
   }
 }
 
-void ICACHE_FLASH_ATTR logdumphtml(String &str) {
+void logdumphtml(String &str) {
   for (int i=0; i<log_lines_count; i++) {
     LogLine line = log_line(i);
     String txt = line.text;
@@ -236,7 +236,7 @@ void ICACHE_FLASH_ATTR logdumphtml(String &str) {
   }
 }
 
-void ICACHE_FLASH_ATTR logpoll(void) {
+void logpoll(void) {
   if ((log_channels & LOG_CHANNEL_NETWORK) && udp && net_connected()) {
     for (int i=0; i<log_lines_count; i++) {
       LogLine &line = log_line(i);
@@ -263,19 +263,19 @@ void ICACHE_FLASH_ATTR logpoll(void) {
   }
 }
 
-void ICACHE_FLASH_ATTR logclear(void) {
+void logclear(void) {
   //log_lines.clear();
 }
 
-void ICACHE_FLASH_ATTR logcolortext(uint8_t col) {
+void logcolortext(uint8_t col) {
   color_text = col;
 }
 
-void ICACHE_FLASH_ATTR logcolortime(uint8_t col) {
+void logcolortime(uint8_t col) {
   color_time = col;
 }
 
-void ICACHE_FLASH_ATTR logend(void) {
+void logend(void) {
   char col[8];
 
   logprint(F("LOG:  disabling logging on all channels\n"));
@@ -307,7 +307,7 @@ void ICACHE_FLASH_ATTR logend(void) {
   logclear();
 }
 
-void ICACHE_FLASH_ATTR logprogress(const String &prefix, const String &postfix, int value) {
+void logprogress(const String &prefix, const String &postfix, int value) {
   String str = prefix + String(value) + postfix;
   LogLine line(str.c_str(), str.length());
 
@@ -321,7 +321,7 @@ void ICACHE_FLASH_ATTR logprogress(const String &prefix, const String &postfix, 
   lograw("\033[1G");
 }
 
-void ICACHE_FLASH_ATTR lograw(const String &text) {
+void lograw(const String &text) {
   if (log_channels & LOG_CHANNEL_SERIAL) {
     logserial(text.c_str(), text.length());
   }
@@ -330,7 +330,7 @@ void ICACHE_FLASH_ATTR lograw(const String &text) {
   }
 }
 
-void ICACHE_FLASH_ATTR logprint(const __FlashStringHelper *fmt, ...) {
+void logprint(const __FlashStringHelper *fmt, ...) {
   char buffer[MAX_LINE_LEN];
   va_list args;
   int length;
@@ -344,7 +344,7 @@ void ICACHE_FLASH_ATTR logprint(const __FlashStringHelper *fmt, ...) {
   print(buffer, length);
 }
 
-void ICACHE_FLASH_ATTR logprint(const char *fmt, ...) {
+void logprint(const char *fmt, ...) {
   char buffer[MAX_LINE_LEN];
   va_list args;
   int length;
@@ -358,14 +358,14 @@ void ICACHE_FLASH_ATTR logprint(const char *fmt, ...) {
   print(buffer, length);
 }
 
-void ICACHE_FLASH_ATTR logregistermessagecb(void (*cb)(const char *)) {
+void logregistermessagecb(void (*cb)(const char *)) {
   // set message callback function
   message_cb = cb;
 }
 
 #endif // RELASE
 
-char * ICACHE_FLASH_ATTR log_color_str(char buf[], uint8_t col) {
+char * log_color_str(char buf[], uint8_t col) {
   sprintf(buf, "\033[0;3%im", col);
 
   return (buf);

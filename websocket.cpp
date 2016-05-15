@@ -43,7 +43,7 @@ static int client_request[WEBSOCKETS_SERVER_CLIENT_MAX];
 
 static WebSocketsServer *websocket = NULL;
 
-static void ICACHE_FLASH_ATTR send_time_data(int client) {
+static void send_time_data(int client) {
 #ifndef RELEASE
   char time[16], uptime[24];
   Buffer data;
@@ -68,7 +68,7 @@ static void ICACHE_FLASH_ATTR send_time_data(int client) {
 #endif
 }
 
-static void ICACHE_FLASH_ATTR send_adc_data(int client) {
+static void send_adc_data(int client) {
 #ifndef RELEASE
   Buffer data;
 
@@ -83,7 +83,7 @@ static void ICACHE_FLASH_ATTR send_adc_data(int client) {
 #endif
 }
 
-static void ICACHE_FLASH_ATTR send_load_data(int client) {
+static void send_load_data(int client) {
 #ifndef RELEASE
   String cpu_data, mem_data, net_data;
   Buffer data(512);
@@ -123,7 +123,7 @@ static void ICACHE_FLASH_ATTR send_load_data(int client) {
 #endif
 }
 
-static void ICACHE_FLASH_ATTR send_log_data(int client) {
+static void send_log_data(int client) {
 #ifndef RELEASE
   String log;
 
@@ -142,7 +142,7 @@ static void ICACHE_FLASH_ATTR send_log_data(int client) {
 #endif
 }
 
-static void ICACHE_FLASH_ATTR ws_event(uint8_t client, WStype_t type, uint8_t *data, size_t len) {
+static void ws_event(uint8_t client, WStype_t type, uint8_t *data, size_t len) {
   IPAddress ip = websocket->remoteIP(client);
 
   switch (type) {
@@ -177,7 +177,7 @@ static void ICACHE_FLASH_ATTR ws_event(uint8_t client, WStype_t type, uint8_t *d
   }
 }
 
-void ICACHE_FLASH_ATTR websocket_broadcast_message(const char *msg) {
+void websocket_broadcast_message(const char *msg) {
   Buffer data;
 
   data += "{\"type\":\"broadcast\",\"value\":\"";
@@ -190,7 +190,7 @@ void ICACHE_FLASH_ATTR websocket_broadcast_message(const char *msg) {
   system_yield();
 }
 
-bool ICACHE_FLASH_ATTR websocket_init(void) {
+bool websocket_init(void) {
   if (websocket) return (false);
 
   for (int i=0; i<WEBSOCKETS_SERVER_CLIENT_MAX; i++) {
@@ -204,7 +204,7 @@ bool ICACHE_FLASH_ATTR websocket_init(void) {
   return (true);
 }
 
-void ICACHE_FLASH_ATTR websocket_poll(void) {
+void websocket_poll(void) {
   if (websocket) {
     websocket->loop();
 
@@ -221,7 +221,7 @@ void ICACHE_FLASH_ATTR websocket_poll(void) {
   }
 }
 
-void ICACHE_FLASH_ATTR websocket_disconnect_clients(void) {
+void websocket_disconnect_clients(void) {
   if (websocket) {
     websocket->disconnect();
     log_print(F("WS:   disconnected all clients\n"));

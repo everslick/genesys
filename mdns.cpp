@@ -25,7 +25,7 @@
 
 #include "mdns.h"
 
-bool ICACHE_FLASH_ATTR mdns_init(void) {
+bool mdns_init(void) {
   const char *name = config->mdns_name;
 
   if (!config->mdns_enabled) {

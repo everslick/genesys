@@ -32,7 +32,7 @@
 #define NTP_REMOTE_PORT  123
 #define NTP_PACKET_SIZE   48
 
-int ICACHE_FLASH_ATTR ntp_gettime(struct timespec *tp) {
+int ntp_gettime(struct timespec *tp) {
   byte msg[NTP_PACKET_SIZE];
   int waiting = 1000; // ms
   IPAddress server;
@@ -105,7 +105,7 @@ int ICACHE_FLASH_ATTR ntp_gettime(struct timespec *tp) {
   return (0);
 }
 
-int ICACHE_FLASH_ATTR ntp_settime(void) {
+int ntp_settime(void) {
   char time_buf[16], diff_buf[16] = { '\0' };
   struct timespec now, ntp, diff;
 
@@ -129,11 +129,11 @@ int ICACHE_FLASH_ATTR ntp_settime(void) {
   return (0);
 }
 
-bool ICACHE_FLASH_ATTR ntp_init(void) {
+bool ntp_init(void) {
   return (true);
 }
 
-bool ICACHE_FLASH_ATTR ntp_poll(void) {
+bool ntp_poll(void) {
   uint32_t interval = config->ntp_interval * 1000 * 60;
   static bool sync_pending = true;
   static uint32_t ms = 0;

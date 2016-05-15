@@ -36,7 +36,7 @@ static ESP8266WebServer *http = NULL;
 
 static String session_key;
 
-static void ICACHE_FLASH_ATTR create_session_key(void) {
+static void create_session_key(void) {
   static const char *charset = "abcdefghijklmnopqrstuvwxyz"
                                "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                                "0123456789";
@@ -54,7 +54,7 @@ static void ICACHE_FLASH_ATTR create_session_key(void) {
   session_key = buf;
 }
 
-static bool ICACHE_FLASH_ATTR setup_complete(void) {
+static bool setup_complete(void) {
   String header;
 
   if (strlen(config->user_name) && strlen(config->user_pass)) {
@@ -71,7 +71,7 @@ static bool ICACHE_FLASH_ATTR setup_complete(void) {
   return (false);
 }
 
-static bool ICACHE_FLASH_ATTR authenticated(void) {
+static bool authenticated(void) {
   String header;
 
   if (http->hasHeader("Cookie")){
@@ -92,7 +92,7 @@ static bool ICACHE_FLASH_ATTR authenticated(void) {
   return (false);
 }
 
-static void ICACHE_FLASH_ATTR send_header(const String &session, const String &redirect) {
+static void send_header(const String &session, const String &redirect) {
   String header;
 
   header += F("HTTP/1.1 301 OK\r\n");
@@ -108,7 +108,7 @@ static void ICACHE_FLASH_ATTR send_header(const String &session, const String &r
   system_count_net_traffic(header.length());
 }
 
-static bool ICACHE_FLASH_ATTR store_str(char *conf, String value, int len) {
+static bool store_str(char *conf, String value, int len) {
   if (value.length() >= len) return (false);
 
   if (value.length() > 0) {
@@ -119,7 +119,7 @@ static bool ICACHE_FLASH_ATTR store_str(char *conf, String value, int len) {
   return (true);
 }
 
-static bool ICACHE_FLASH_ATTR store_ip(uint32_t &conf, String value) {
+static bool store_ip(uint32_t &conf, String value) {
   if (value.length() > 16) return (false);
 
   if (value.length() > 0) {
@@ -132,7 +132,7 @@ static bool ICACHE_FLASH_ATTR store_ip(uint32_t &conf, String value) {
   return (true);
 }
 
-static bool ICACHE_FLASH_ATTR store_int(uint32_t &conf, String value, int min, int max) {
+static bool store_int(uint32_t &conf, String value, int min, int max) {
   int val = value.toInt();
 
   if ((val < min) || (val > max)) {
@@ -144,7 +144,7 @@ static bool ICACHE_FLASH_ATTR store_int(uint32_t &conf, String value, int min, i
   return (true);
 }
 
-static bool ICACHE_FLASH_ATTR store_bool(uint8_t &conf, String value) {
+static bool store_bool(uint8_t &conf, String value) {
   int val = value.toInt();
 
   if ((val != 0) && (val != 1)) {
@@ -156,7 +156,7 @@ static bool ICACHE_FLASH_ATTR store_bool(uint8_t &conf, String value) {
   return (true);
 }
 
-static bool ICACHE_FLASH_ATTR store_config(String name, String value) {
+static bool store_config(String name, String value) {
   if (name == "user_name")
 	 return (store_str(config->user_name, value, 64));
   if (name == "user_pass")
@@ -213,7 +213,7 @@ static bool ICACHE_FLASH_ATTR store_config(String name, String value) {
   return (false);
 }
 
-static void ICACHE_FLASH_ATTR handle_update_start_cb(void) {
+static void handle_update_start_cb(void) {
   String webpage;
 
   if (!webpage.reserve(512)) {
@@ -232,7 +232,7 @@ static void ICACHE_FLASH_ATTR handle_update_start_cb(void) {
   system_count_net_traffic(webpage.length());
 }
 
-static void ICACHE_FLASH_ATTR handle_update_finished_cb(void) {
+static void handle_update_finished_cb(void) {
   String response;
 
   response += F("Update ");
@@ -245,7 +245,7 @@ static void ICACHE_FLASH_ATTR handle_update_finished_cb(void) {
   system_reboot();
 }
 
-static void ICACHE_FLASH_ATTR handle_update_progress_cb(void) {
+static void handle_update_progress_cb(void) {
   uint32_t free_space = (system_free_sketch_space() - 0x1000) & 0xFFFFF000;
   static int received = 0, last_perc = -1;
   HTTPUpload &upload = http->upload();
@@ -294,7 +294,7 @@ static void ICACHE_FLASH_ATTR handle_update_progress_cb(void) {
   system_yield();
 }
 
-static void ICACHE_FLASH_ATTR handle_info_cb(void) {
+static void handle_info_cb(void) {
 #ifndef RELEASE
   String webpage;
 
@@ -316,7 +316,7 @@ static void ICACHE_FLASH_ATTR handle_info_cb(void) {
 #endif
 }
 
-static void ICACHE_FLASH_ATTR handle_reboot_cb(void) {
+static void handle_reboot_cb(void) {
   String webpage;
 
   if (!authenticated()) return;
@@ -339,7 +339,7 @@ static void ICACHE_FLASH_ATTR handle_reboot_cb(void) {
   system_reboot();
 }
 
-static void ICACHE_FLASH_ATTR handle_sys_cb(void) {
+static void handle_sys_cb(void) {
 #ifndef RELEASE
   String webpage;
 
@@ -361,7 +361,7 @@ static void ICACHE_FLASH_ATTR handle_sys_cb(void) {
 #endif
 }
 
-static bool ICACHE_FLASH_ATTR validate_config(String &html) {
+static bool validate_config(String &html) {
   bool config_ok = true;
 
   for (int i=0; i<http->args(); i++) {
@@ -384,7 +384,7 @@ static bool ICACHE_FLASH_ATTR validate_config(String &html) {
   return (config_ok);
 }
 
-static void ICACHE_FLASH_ATTR handle_conf_cb(void) {
+static void handle_conf_cb(void) {
   bool store_new_config = false;
   String webpage;
 
@@ -416,7 +416,7 @@ static void ICACHE_FLASH_ATTR handle_conf_cb(void) {
   }
 }
 
-static void ICACHE_FLASH_ATTR handle_setup_cb(void) {
+static void handle_setup_cb(void) {
   bool store_new_config = false;
   String webpage;
 
@@ -472,7 +472,7 @@ static void ICACHE_FLASH_ATTR handle_setup_cb(void) {
   }
 }
 
-static void ICACHE_FLASH_ATTR handle_login_cb(void) {
+static void handle_login_cb(void) {
   String webpage, header, msg;
 
   if (!setup_complete()) return;
@@ -518,7 +518,7 @@ static void ICACHE_FLASH_ATTR handle_login_cb(void) {
   system_count_net_traffic(webpage.length());
 }
 
-static void ICACHE_FLASH_ATTR handle_root_cb(void) {
+static void handle_root_cb(void) {
   String webpage;
 
   if (!setup_complete()) return;
@@ -539,19 +539,19 @@ static void ICACHE_FLASH_ATTR handle_root_cb(void) {
   system_count_net_traffic(webpage.length());
 }
 
-static void ICACHE_FLASH_ATTR handle_style_cb(void) {
+static void handle_style_cb(void) {
   http->sendHeader("Cache-Control", "max-age=86400");
   http->send(200, "text/css", html_page_style);
   system_count_net_traffic(strlen_P((PGM_P)html_page_style));
 }
 
-static void ICACHE_FLASH_ATTR handle_script_cb(void) {
+static void handle_script_cb(void) {
   http->sendHeader("Cache-Control", "max-age=86400");
   http->send(200, "text/javascript", html_page_script);
   system_count_net_traffic(strlen_P((PGM_P)html_page_script));
 }
 
-static void ICACHE_FLASH_ATTR handle_404_cb(void) {
+static void handle_404_cb(void) {
 #ifndef RELEASE
   String webpage;
 
@@ -584,7 +584,7 @@ static void ICACHE_FLASH_ATTR handle_404_cb(void) {
 #endif
 }
 
-bool ICACHE_FLASH_ATTR http_init(void) {
+bool http_init(void) {
   if (http) return (false);
 
   create_session_key();
@@ -622,7 +622,7 @@ bool ICACHE_FLASH_ATTR http_init(void) {
   return (true);
 }
 
-bool ICACHE_FLASH_ATTR http_poll(void) {
+bool http_poll(void) {
   if (!http) return (false);
 
   if (net_connected()) {

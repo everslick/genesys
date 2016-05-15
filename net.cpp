@@ -34,7 +34,7 @@ extern "C" {
 
 static void (*event_cb)(uint16_t) = NULL;
 
-static void ICACHE_FLASH_ATTR default_event_handler(WiFiEvent_t event) {
+static void default_event_handler(WiFiEvent_t event) {
   switch (event) {
     case WIFI_EVENT_SOFTAPMODE_STACONNECTED:
       log_print(F("WIFI: client connected to AP\n"));
@@ -62,12 +62,12 @@ static void ICACHE_FLASH_ATTR default_event_handler(WiFiEvent_t event) {
   }
 }
 
-void ICACHE_FLASH_ATTR net_register_event_cb(void (*cb)(uint16_t)) {
+void net_register_event_cb(void (*cb)(uint16_t)) {
   // set event callback function
   event_cb = cb;
 }
 
-bool ICACHE_FLASH_ATTR net_init(void) {
+bool net_init(void) {
   // delete old config, disable STA and AP
   WiFi.disconnect(true);       // true = disable STA mode
   WiFi.softAPdisconnect(true); // true = disable AP mode
@@ -126,7 +126,7 @@ bool ICACHE_FLASH_ATTR net_init(void) {
   return (true);
 }
 
-void ICACHE_FLASH_ATTR net_scan_wifi(List<NetAccessPoint> &list) {
+void net_scan_wifi(List<NetAccessPoint> &list) {
   int n = WiFi.scanNetworks();
   int indices[n];
 
@@ -173,39 +173,39 @@ void ICACHE_FLASH_ATTR net_scan_wifi(List<NetAccessPoint> &list) {
   }
 }
 
-String ICACHE_FLASH_ATTR net_hostname(void) {
+String net_hostname(void) {
   return (WiFi.hostname());
 }
 
-String ICACHE_FLASH_ATTR net_gateway(void) {
+String net_gateway(void) {
   return (WiFi.gatewayIP().toString());
 }
 
-String ICACHE_FLASH_ATTR net_dns(void) {
+String net_dns(void) {
   return (WiFi.dnsIP().toString());
 }
 
-String ICACHE_FLASH_ATTR net_netmask(void) {
+String net_netmask(void) {
   return (WiFi.subnetMask().toString());
 }
 
-String ICACHE_FLASH_ATTR net_ip(void) {
+String net_ip(void) {
   return (WiFi.localIP().toString());
 }
 
-String ICACHE_FLASH_ATTR net_mac(void) {
+String net_mac(void) {
   return (WiFi.macAddress());
 }
 
-String ICACHE_FLASH_ATTR net_ssid(void) {
+String net_ssid(void) {
   return (WiFi.SSID());
 }
 
-int ICACHE_FLASH_ATTR net_rssi(void) {
+int net_rssi(void) {
   return (WiFi.RSSI() + 100);
 }
 
-int ICACHE_FLASH_ATTR net_xmit(void) {
+int net_xmit(void) {
 #if LWIP_STATS
   return (lwip_stats.ip.xmit);
 #else
@@ -213,32 +213,32 @@ int ICACHE_FLASH_ATTR net_xmit(void) {
 #endif
 }
 
-bool ICACHE_FLASH_ATTR net_connected(void) {
+bool net_connected(void) {
   return (WiFi.status() == WL_CONNECTED);
 }
 
-String ICACHE_FLASH_ATTR net_ap_gateway(void) {
+String net_ap_gateway(void) {
   struct ip_info info;
 
   wifi_get_ip_info(SOFTAP_IF, &info);
   return (IPAddress(info.gw.addr).toString());
 }
 
-String ICACHE_FLASH_ATTR net_ap_netmask(void) {
+String net_ap_netmask(void) {
   struct ip_info info;
 
   wifi_get_ip_info(SOFTAP_IF, &info);
   return (IPAddress(info.netmask.addr).toString());
 }
 
-String ICACHE_FLASH_ATTR net_ap_mac(void) {
+String net_ap_mac(void) {
   return (WiFi.softAPmacAddress());
 }
 
-String ICACHE_FLASH_ATTR net_ap_ip(void) {
+String net_ap_ip(void) {
   return (WiFi.softAPIP().toString());
 }
 
-int ICACHE_FLASH_ATTR net_ap_clients(void) {
+int net_ap_clients(void) {
   return (WiFi.softAPgetStationNum());
 }

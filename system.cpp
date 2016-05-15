@@ -71,7 +71,7 @@ static int modulo(int a, int b) {
   return ((r < 0) ? r + b : r);
 }
 
-bool ICACHE_FLASH_ATTR system_init(void) {
+bool system_init(void) {
   snprintf(client_id, sizeof (client_id), "esp-%x", system_get_chip_id());
 
 #ifndef RELEASE
@@ -98,7 +98,7 @@ bool ICACHE_FLASH_ATTR system_init(void) {
   return (true);
 }
 
-bool ICACHE_FLASH_ATTR system_poll(void) {
+bool system_poll(void) {
 #ifndef RLEASE
   static uint32_t ms = 0;
   char uptime[24];
@@ -124,7 +124,7 @@ bool ICACHE_FLASH_ATTR system_poll(void) {
   return (true);
 }
 
-void ICACHE_FLASH_ATTR system_delay(uint32_t ms) {
+void system_delay(uint32_t ms) {
 #ifndef RELEASE
   int ticks = (idle_yield_count / YIELD_COUNT_SCALER) / LOAD_HISTORY_INTERVAL;
 
@@ -134,7 +134,7 @@ void ICACHE_FLASH_ATTR system_delay(uint32_t ms) {
   delay(ms);
 }
 
-void ICACHE_FLASH_ATTR system_yield(void) {
+void system_yield(void) {
 #ifndef RELEASE
   yield_count++;
 #endif
@@ -142,7 +142,7 @@ void ICACHE_FLASH_ATTR system_yield(void) {
   yield();
 }
 
-void ICACHE_FLASH_ATTR system_idle(void) {
+void system_idle(void) {
 #ifndef RELEASE
   static uint32_t ms = 0;
   SysLoad load;
@@ -174,7 +174,7 @@ void ICACHE_FLASH_ATTR system_idle(void) {
   system_yield();
 }
 
-uint8_t ICACHE_FLASH_ATTR system_cpu_load(void) {
+uint8_t system_cpu_load(void) {
 #ifndef RELEASE
   return (cpu_load);
 #else
@@ -182,7 +182,7 @@ uint8_t ICACHE_FLASH_ATTR system_cpu_load(void) {
 #endif
 }
 
-uint8_t ICACHE_FLASH_ATTR system_mem_usage(void) {
+uint8_t system_mem_usage(void) {
 #ifndef RELEASE
   return (mem_usage);
 #else
@@ -190,7 +190,7 @@ uint8_t ICACHE_FLASH_ATTR system_mem_usage(void) {
 #endif
 }
 
-uint8_t ICACHE_FLASH_ATTR system_net_traffic(void) {
+uint8_t system_net_traffic(void) {
 #ifndef RELEASE
   return (net_traffic);
 #else
@@ -198,13 +198,13 @@ uint8_t ICACHE_FLASH_ATTR system_net_traffic(void) {
 #endif
 }
 
-void ICACHE_FLASH_ATTR system_count_net_traffic(uint32_t bytes) {
+void system_count_net_traffic(uint32_t bytes) {
 #ifndef RELEASE
   traffic_count += bytes;
 #endif
 }
 
-SysLoad & ICACHE_FLASH_ATTR system_load_history(uint16_t index) {
+SysLoad & system_load_history(uint16_t index) {
 #ifndef RELEASE
   int start = load_history_index - load_history_count;
   int idx = modulo(start + index, load_history_count);
@@ -217,7 +217,7 @@ SysLoad & ICACHE_FLASH_ATTR system_load_history(uint16_t index) {
 #endif
 }
 
-uint16_t ICACHE_FLASH_ATTR system_load_history_entries(void) {
+uint16_t system_load_history_entries(void) {
 #ifndef RELEASE
   return (load_history_count);
 #else
@@ -225,27 +225,27 @@ uint16_t ICACHE_FLASH_ATTR system_load_history_entries(void) {
 #endif
 }
 
-uint32_t ICACHE_FLASH_ATTR system_free_heap(void) {
+uint32_t system_free_heap(void) {
   return (system_get_free_heap_size());
 }
 
-uint32_t ICACHE_FLASH_ATTR system_free_stack(void) {
+uint32_t system_free_stack(void) {
   return (cont_get_free_stack(&g_cont));
 }
 
-bool ICACHE_FLASH_ATTR system_stack_corrupt(void) {
+bool system_stack_corrupt(void) {
   return (cont_check(&g_cont));
 }
 
-uint32_t ICACHE_FLASH_ATTR system_sketch_size(void) {
+uint32_t system_sketch_size(void) {
   return (ESP.getSketchSize());
 }
 
-uint32_t ICACHE_FLASH_ATTR system_free_sketch_space(void) {
+uint32_t system_free_sketch_space(void) {
   return (ESP.getFreeSketchSpace());
 }
 
-char * ICACHE_FLASH_ATTR system_uptime(char buf[]) {
+char * system_uptime(char buf[]) {
   time_t time = millis() / 1e3;
   int    days = (time / 86400);
   int   hours = (time % 86400) / 3600; // 86400 equals secs per day
@@ -261,7 +261,7 @@ char * ICACHE_FLASH_ATTR system_uptime(char buf[]) {
   return (buf);
 }
 
-char * ICACHE_FLASH_ATTR system_time(char buf[], time_t time) {
+char * system_time(char buf[], time_t time) {
   if (time == INT_MAX) time = clock_time();
 
   int   hours = (time % 86400) / 3600; // 86400 equals secs per day
@@ -273,7 +273,7 @@ char * ICACHE_FLASH_ATTR system_time(char buf[], time_t time) {
   return (buf);
 }
 
-void ICACHE_FLASH_ATTR system_device_info(String &str) {
+void system_device_info(String &str) {
 #ifndef RELEASE
   str += "genesys version: " + String(FIRMWARE)                     + '\n';
   str += "    sketch size: " + String(system_sketch_size())         + '\n';
@@ -283,7 +283,7 @@ void ICACHE_FLASH_ATTR system_device_info(String &str) {
 #endif
 }
 
-void ICACHE_FLASH_ATTR system_sys_info(String &str) {
+void system_sys_info(String &str) {
 #ifndef RELEASE
   char uptime[24];
 
@@ -301,7 +301,7 @@ void ICACHE_FLASH_ATTR system_sys_info(String &str) {
 #endif
 }
 
-void ICACHE_FLASH_ATTR system_net_info(String &str) {
+void system_net_info(String &str) {
 #ifndef RELEASE
   str += "             ip: " +  net_ip()                            + '\n';
   str += "        gateway: " +  net_gateway()                       + '\n';
@@ -313,7 +313,7 @@ void ICACHE_FLASH_ATTR system_net_info(String &str) {
 #endif
 }
 
-void ICACHE_FLASH_ATTR system_ap_info(String &str) {
+void system_ap_info(String &str) {
 #ifndef RELEASE
   str += "          AP ip: " +  net_ap_ip()                         + '\n';
   str += "     AP gateway: " +  net_ap_gateway()                    + '\n';
@@ -322,7 +322,7 @@ void ICACHE_FLASH_ATTR system_ap_info(String &str) {
 #endif
 }
 
-void ICACHE_FLASH_ATTR system_wifi_info(String &str) {
+void system_wifi_info(String &str) {
 #ifndef RELEASE
   List<NetAccessPoint>::iterator it;
   List<NetAccessPoint> ap;
@@ -343,7 +343,7 @@ void ICACHE_FLASH_ATTR system_wifi_info(String &str) {
 #endif
 }
 
-void ICACHE_FLASH_ATTR system_reboot(void) {
+void system_reboot(void) {
   websocket_broadcast_message("reboot");
 
   reboot_pending = 10000;

@@ -35,7 +35,7 @@ static MQTT *mqtt = NULL;
 
 static String topic;
 
-static void ICACHE_FLASH_ATTR mqtt_connected_cb(void) {
+static void mqtt_connected_cb(void) {
   String t = topic + "setup";
 
   mqtt_is_connected = true;
@@ -46,7 +46,7 @@ static void ICACHE_FLASH_ATTR mqtt_connected_cb(void) {
   }
 }
 
-static void ICACHE_FLASH_ATTR mqtt_disconnected_cb(void) {
+static void mqtt_disconnected_cb(void) {
   mqtt_is_connected = false;
 
   if (event_cb) {
@@ -54,14 +54,14 @@ static void ICACHE_FLASH_ATTR mqtt_disconnected_cb(void) {
   }
 }
 
-static void ICACHE_FLASH_ATTR mqtt_published_cb(void) {
+static void mqtt_published_cb(void) {
 }
 
-static void ICACHE_FLASH_ATTR mqtt_data_cb(String &topic, String &data) {
+static void mqtt_data_cb(String &topic, String &data) {
   log_print(F("MQTT: data %s:%s\n"), topic.c_str(), data.c_str());
 }
 
-static void ICACHE_FLASH_ATTR publish_debug_info(void) {
+static void publish_debug_info(void) {
 #ifndef RELEASE
   uint32_t stack = system_free_stack();
   uint32_t free = system_free_heap();
@@ -81,7 +81,7 @@ static void ICACHE_FLASH_ATTR publish_debug_info(void) {
 #endif
 }
 
-static void ICACHE_FLASH_ATTR publish_poweron_info(void) {
+static void publish_poweron_info(void) {
   String t = topic + "poweron";
 
   String msg = String("{ ") +
@@ -92,7 +92,7 @@ static void ICACHE_FLASH_ATTR publish_poweron_info(void) {
   system_count_net_traffic(msg.length());
 }
 
-static void ICACHE_FLASH_ATTR publish_adc_value(void) {
+static void publish_adc_value(void) {
   static bool first_call = true;
   String t = topic + "adc";
   String msg;
@@ -117,12 +117,12 @@ static void ICACHE_FLASH_ATTR publish_adc_value(void) {
   system_count_net_traffic(msg.length());
 }
 
-void ICACHE_FLASH_ATTR mqtt_register_event_cb(void (*cb)(uint16_t)) {
+void mqtt_register_event_cb(void (*cb)(uint16_t)) {
   // set event callback function
   event_cb = cb;
 }
 
-bool ICACHE_FLASH_ATTR mqtt_init(void) {
+bool mqtt_init(void) {
   if (!config->mqtt_enabled) {
     log_print(F("MQTT: mqtt disabled in config\n"));
     return (false);
@@ -147,7 +147,7 @@ bool ICACHE_FLASH_ATTR mqtt_init(void) {
   return (true);
 }
 
-bool ICACHE_FLASH_ATTR mqtt_poll(void) {
+bool mqtt_poll(void) {
   static uint32_t ms = 0;
 
   if (!config->mqtt_enabled) return (false);

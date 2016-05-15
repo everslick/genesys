@@ -42,7 +42,7 @@
 #include "net.h"
 #include "log.h"
 
-static void ICACHE_FLASH_ATTR dump_debug_info(void) {
+static void dump_debug_info(void) {
 #ifndef RELEASE
   char col[8];
   String str;
@@ -94,7 +94,7 @@ static void ICACHE_FLASH_ATTR dump_debug_info(void) {
 #endif
 }
 
-static void ICACHE_FLASH_ATTR wifi_cb(uint16_t event) {
+static void wifi_cb(uint16_t event) {
   switch (event) {
     case WIFI_EVENT_STAMODE_GOT_IP:
       log_print(F("WIFI: STA connected, local IP: %s\n"), net_ip().c_str());
@@ -113,7 +113,7 @@ static void ICACHE_FLASH_ATTR wifi_cb(uint16_t event) {
   }
 }
 
-static void ICACHE_FLASH_ATTR button_cb(uint16_t event) {
+static void button_cb(uint16_t event) {
   static bool reset_in_progress = false;
   static bool short_press = false;
 
@@ -153,7 +153,7 @@ static void ICACHE_FLASH_ATTR button_cb(uint16_t event) {
   }
 }
 
-static void ICACHE_FLASH_ATTR mqtt_cb(uint16_t event) {
+static void mqtt_cb(uint16_t event) {
   switch (event) {
     case MQTT_EVENT_CONNECTED:
       log_print(F("MQTT: connected to broker: %s\n"), config->mqtt_server);
@@ -172,7 +172,7 @@ static void ICACHE_FLASH_ATTR mqtt_cb(uint16_t event) {
   }
 }
 
-static void ICACHE_FLASH_ATTR log_cb(const char *msg) {
+static void log_cb(const char *msg) {
 #ifndef RELEASE
   String str, cmd = msg;
   char col[8];

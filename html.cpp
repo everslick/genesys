@@ -46,7 +46,7 @@ const __FlashStringHelper *html_page_body;
 const __FlashStringHelper *html_page_menu;
 const __FlashStringHelper *html_page_footer;
 
-void ICACHE_FLASH_ATTR html_insert_root_content(String &html) {
+void html_insert_root_content(String &html) {
   char *pagebuf = (char *)malloc(1024);
   char time[16], uptime[24];
 
@@ -65,7 +65,7 @@ void ICACHE_FLASH_ATTR html_insert_root_content(String &html) {
   free(pagebuf);
 }
 
-void ICACHE_FLASH_ATTR html_insert_info_content(String &html) {
+void html_insert_info_content(String &html) {
 #ifndef RELEASE
   char *pagebuf = (char *)malloc(3*1024);
   const char *flash_mode = "UNKNOWN";
@@ -124,7 +124,7 @@ void ICACHE_FLASH_ATTR html_insert_info_content(String &html) {
 #endif // RELEASE
 }
 
-void ICACHE_FLASH_ATTR html_insert_conf_content(String &html) {
+void html_insert_conf_content(String &html) {
   char *pagebuf = (char *)malloc(5*1024);
 
   if (!pagebuf) {
@@ -174,7 +174,7 @@ void ICACHE_FLASH_ATTR html_insert_conf_content(String &html) {
   free(pagebuf);
 }
 
-void ICACHE_FLASH_ATTR html_insert_setup_content(String &html) {
+void html_insert_setup_content(String &html) {
   char *pagebuf = (char *)malloc(3*1024);
 
   if (!pagebuf) {
@@ -202,7 +202,7 @@ void ICACHE_FLASH_ATTR html_insert_setup_content(String &html) {
   free(pagebuf);
 }
 
-void ICACHE_FLASH_ATTR html_insert_login_content(const String &msg, String &html) {
+void html_insert_login_content(const String &msg, String &html) {
   char *pagebuf = (char *)malloc(2*1024);
 
   if (!pagebuf) {
@@ -219,7 +219,7 @@ void ICACHE_FLASH_ATTR html_insert_login_content(const String &msg, String &html
   free(pagebuf);
 }
  
-void ICACHE_FLASH_ATTR html_insert_sys_content(String &html) {
+void html_insert_sys_content(String &html) {
 #ifndef RELEASE
   char *pagebuf = (char *)malloc(4*1024);
 
@@ -234,15 +234,15 @@ void ICACHE_FLASH_ATTR html_insert_sys_content(String &html) {
 #endif
 }
 
-void ICACHE_FLASH_ATTR html_insert_page_header(String &html) {
+void html_insert_page_header(String &html) {
   html += html_page_header;
 }
 
-void ICACHE_FLASH_ATTR html_insert_page_refresh(String &html) {
+void html_insert_page_refresh(String &html) {
   html += html_page_refresh;
 }
 
-void ICACHE_FLASH_ATTR html_insert_page_redirect(String &html, int delay) {
+void html_insert_page_redirect(String &html, int delay) {
   char pagebuf[128];
 
   snprintf_P(pagebuf, sizeof (pagebuf), html_redirect_fmt, delay);
@@ -250,19 +250,19 @@ void ICACHE_FLASH_ATTR html_insert_page_redirect(String &html, int delay) {
   html += pagebuf;
 }
 
-void ICACHE_FLASH_ATTR html_insert_page_body(String &html) {
+void html_insert_page_body(String &html) {
   html += html_page_body;
 }
 
-void ICACHE_FLASH_ATTR html_insert_page_menu(String &html) {
+void html_insert_page_menu(String &html) {
   html += html_page_menu;
 }
 
-void ICACHE_FLASH_ATTR html_insert_page_footer(String &html) {
+void html_insert_page_footer(String &html) {
   html += html_page_footer;
 }
 
-bool ICACHE_FLASH_ATTR html_init(void) {
+bool html_init(void) {
 
   html_redirect_fmt = PSTR(" \
     <meta http-equiv='refresh' content='%i;URL=/'/>\n \

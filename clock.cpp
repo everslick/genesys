@@ -28,7 +28,7 @@ static uint32_t        sys_time_ms(void);
 static struct timespec offset_tp = sys_time_tp();
 static uint32_t        offset_ms = sys_time_ms();
 
-static struct timespec ICACHE_FLASH_ATTR sys_time_tp(void) {
+static struct timespec sys_time_tp(void) {
   struct timespec ret;
 
   ret.tv_sec  = millis() / 1e3;
@@ -37,11 +37,11 @@ static struct timespec ICACHE_FLASH_ATTR sys_time_tp(void) {
   return (ret);
 }
 
-static uint32_t ICACHE_FLASH_ATTR sys_time_ms(void) {
+static uint32_t sys_time_ms(void) {
   return (millis());
 }
 
-struct timespec ICACHE_FLASH_ATTR clock_subtime(struct timespec *a, struct timespec *b) {
+struct timespec clock_subtime(struct timespec *a, struct timespec *b) {
   struct timespec ret;
 
   ret.tv_sec  = b->tv_sec  - a->tv_sec;
@@ -55,7 +55,7 @@ struct timespec ICACHE_FLASH_ATTR clock_subtime(struct timespec *a, struct times
   return (ret);
 }
 
-struct timespec ICACHE_FLASH_ATTR clock_addtime(struct timespec *a, struct timespec *b) {
+struct timespec clock_addtime(struct timespec *a, struct timespec *b) {
   struct timespec ret;
 
   ret.tv_sec  = b->tv_sec  + a->tv_sec;
@@ -69,7 +69,7 @@ struct timespec ICACHE_FLASH_ATTR clock_addtime(struct timespec *a, struct times
   return (ret);
 }
 
-int ICACHE_FLASH_ATTR clock_cmptime(struct timespec *a, struct timespec *b) {
+int clock_cmptime(struct timespec *a, struct timespec *b) {
   if (a->tv_sec != b->tv_sec) {
     return ((a->tv_sec > b->tv_sec) ? 1 : -1);
   }
@@ -80,7 +80,7 @@ int ICACHE_FLASH_ATTR clock_cmptime(struct timespec *a, struct timespec *b) {
   return (0);
 }
 
-int ICACHE_FLASH_ATTR clock_gettime(clockid_t clk_id, struct timespec *tp) {
+int clock_gettime(clockid_t clk_id, struct timespec *tp) {
   uint32_t diff_ms = sys_time_ms() - offset_ms;
   struct timespec diff_tp;
 
@@ -104,7 +104,7 @@ int ICACHE_FLASH_ATTR clock_gettime(clockid_t clk_id, struct timespec *tp) {
   return (0);
 }
 
-int ICACHE_FLASH_ATTR clock_settime(clockid_t clk_id, struct timespec *tp) {
+int clock_settime(clockid_t clk_id, struct timespec *tp) {
   if ((!tp) || (clk_id != CLOCK_REALTIME)) return (-1);
 
   offset_tp = *tp;
@@ -113,7 +113,7 @@ int ICACHE_FLASH_ATTR clock_settime(clockid_t clk_id, struct timespec *tp) {
   return (0);
 }
 
-time_t ICACHE_FLASH_ATTR clock_time(void) {
+time_t clock_time(void) {
   struct timespec now;
 
   clock_gettime(CLOCK_REALTIME, &now);

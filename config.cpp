@@ -35,7 +35,7 @@
 
 struct Config *config = NULL;
 
-static void ICACHE_FLASH_ATTR eeprom_write(const void *buf, int addr, int size) {
+static void eeprom_write(const void *buf, int addr, int size) {
   char *data = (char *)buf;
 
   for (int i=0; i<size; i++) {
@@ -43,7 +43,7 @@ static void ICACHE_FLASH_ATTR eeprom_write(const void *buf, int addr, int size) 
   }
 }
 
-static void ICACHE_FLASH_ATTR eeprom_read(void *buf, int addr, int size) {
+static void eeprom_read(void *buf, int addr, int size) {
   char *data = (char *)buf;
 
   for (int i=0; i<size; i++) {
@@ -51,7 +51,7 @@ static void ICACHE_FLASH_ATTR eeprom_read(void *buf, int addr, int size) {
   }
 }
 
-static void ICACHE_FLASH_ATTR eeprom_format(void) {
+static void eeprom_format(void) {
   for (int i=0; i<EEPROM_SIZE; i++) {
     EEPROM.write(i, 0);
   }
@@ -59,11 +59,11 @@ static void ICACHE_FLASH_ATTR eeprom_format(void) {
   eeprom_write(MAGIC_STR, 0, MAGIC_LEN);
 }
 
-static void ICACHE_FLASH_ATTR eeprom_commit(void) {
+static void eeprom_commit(void) {
   EEPROM.commit();
 }
 
-void ICACHE_FLASH_ATTR config_reset(void) {
+void config_reset(void) {
   IPAddress ip;
 
   log_print(F("CONF: formatting EEPROM\n"));
@@ -121,7 +121,7 @@ void ICACHE_FLASH_ATTR config_reset(void) {
   EEPROM.end();
 }
 
-void ICACHE_FLASH_ATTR config_init(void) {
+void config_init(void) {
   char magic[MAGIC_LEN + 1];
 
   log_print(F("CONF: reading config from EEPROM\n"));
@@ -154,7 +154,7 @@ void ICACHE_FLASH_ATTR config_init(void) {
   }
 }
 
-void ICACHE_FLASH_ATTR config_write(void) {
+void config_write(void) {
   log_print(F("CONF: writing config to EEPROM\n"));
 
   if (sizeof (Config) > EEPROM_SIZE) {
