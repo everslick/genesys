@@ -34,24 +34,18 @@
 
 static ESP8266WebServer *http = NULL;
 
-static String session_key;
+static char session_key[16];
 
 static void create_session_key(void) {
   static const char *charset = "abcdefghijklmnopqrstuvwxyz"
                                "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                                "0123456789";
-  const int length = 16;
-  char buf[length];
 
-  for (int n=0; n<length; n++) {
-    buf[n] = charset[RANDOM_REG32 % 62];
+  for (int n=0; n<sizeof (session_key) - 1; n++) {
+    session_key[n] = charset[RANDOM_REG32 % 62];
   }
 
-  buf[length] = '\0';
-
-  log_print(F("HTTP: created session key: %s\n"), buf);
-
-  session_key = buf;
+  session_key[sizeof (session_key) - 1] = '\0';
 }
 
 static bool setup_complete(void) {
@@ -76,8 +70,9 @@ static bool authenticated(void) {
 
   if (http->hasHeader("Cookie")){
     String cookie = http->header("Cookie");
+    String name = "GENESYS_SESSION_KEY=";
 
-    if (cookie.indexOf("GENESYS_SESSION_KEY=" + session_key) != -1) {
+    if (cookie.indexOf(name + session_key) != -1) {
       return (true);
     }
   }
@@ -625,9 +620,9 @@ bool http_init(void) {
 bool http_poll(void) {
   if (!http) return (false);
 
-  if (net_connected()) {
-    http->handleClient(); // answer http requests
-  }
+  //if (net_connected()) {
+  http->handleClient(); // answer http requests
+  //}
 
   return (true);
 }
