@@ -21,6 +21,7 @@
 #define _CONFIG_H_
 
 struct Config {
+  char     magic[10];        // magic string
   uint8_t  version;          // config version -> increment if struct changes
 
   // user management

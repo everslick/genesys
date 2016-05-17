@@ -27,40 +27,16 @@
 #define EEPROM_SIZE 4096 // SPI_FLASH_SEC_SIZE
 
 #define MAGIC_STR "GENESYS"
-#define MAGIC_LEN 7
-
-#define DATA_OFFSET 10
+#define MAGIC_LEN 8
 
 #define CONFIG_VERSION 1
 
 struct Config *config = NULL;
 
-static void eeprom_write(const void *buf, int addr, int size) {
-  char *data = (char *)buf;
-
-  for (int i=0; i<size; i++) {
-    EEPROM.write(addr + i, data[i]);
-  }
-}
-
-static void eeprom_read(void *buf, int addr, int size) {
-  char *data = (char *)buf;
-
-  for (int i=0; i<size; i++) {
-    data[i] = EEPROM.read(addr + i);
-  }
-}
-
 static void eeprom_format(void) {
   for (int i=0; i<EEPROM_SIZE; i++) {
     EEPROM.write(i, 0);
   }
-
-  eeprom_write(MAGIC_STR, 0, MAGIC_LEN);
-}
-
-static void eeprom_commit(void) {
-  EEPROM.commit();
 }
 
 void config_reset(void) {
@@ -68,10 +44,9 @@ void config_reset(void) {
 
   log_print(F("CONF: formatting EEPROM\n"));
 
-  EEPROM.begin(sizeof (Config));
-
   eeprom_format();
 
+  strncpy(config->magic       , MAGIC_STR, MAGIC_LEN);
   config->version             = CONFIG_VERSION;
 
   // user
@@ -116,9 +91,7 @@ void config_reset(void) {
   strncpy(config->mqtt_pass   , DEFAULT_MQTT_PASS,   63);
   config->mqtt_interval       = DEFAULT_MQTT_INTERVAL;
 
-  eeprom_write(config, DATA_OFFSET, sizeof (Config));
-
-  EEPROM.end();
+  EEPROM.commit();
 }
 
 void config_init(void) {
@@ -135,18 +108,12 @@ void config_init(void) {
   }
 
   EEPROM.begin(sizeof (Config));
-  eeprom_read(magic, 0, MAGIC_LEN);
-  magic[MAGIC_LEN] = '\0';
-  EEPROM.end();
+  config = (Config *)EEPROM.getDataPtr();
 
-  if (strcmp(MAGIC_STR, magic)) {
+  if (strcmp(MAGIC_STR, config->magic)) {
     log_print(F("CONF: EEPROM not initialized\n"));
     config_reset();
   } else {
-    EEPROM.begin(sizeof (Config));
-    eeprom_read(config, DATA_OFFSET, sizeof (Config));
-    EEPROM.end();
-
     if (config->version != CONFIG_VERSION) {
       log_print(F("CONF: firmware has new config version\n"));
       config_reset();
@@ -161,7 +128,5 @@ void config_write(void) {
     log_print(F("CONF: EEPROM too small\n"));
   }
 
-  EEPROM.begin(EEPROM_SIZE);
-  eeprom_write(config, DATA_OFFSET, sizeof (Config));
-  EEPROM.end();
+  EEPROM.commit();
 }

@@ -301,7 +301,6 @@ bool html_init(void) {
       <br /><br /><center><H3>GENESYS %s</H3></center>\n \
     </p>\n \
     <form class='table'>\n \
-      <h3>Time</h3>\n \
       <p>\n \
         <label for='uptime'>Uptime: </label>\n \
         <input id='uptime' type='text' disabled value='%s'>\n \
@@ -310,9 +309,8 @@ bool html_init(void) {
         <label for='utc'>UTC: </label>\n \
         <input id='utc' type='text' disabled value='%s'>\n \
       </p>\n \
-      <h3>ADC</h3>\n \
       <p>\n \
-        <label for='adc'>Value: </label>\n \
+        <label for='adc'>ADC: </label>\n \
         <input id='adc' type='text' disabled value='%i'>\n \
       </p>\n \
     </form>\n \
