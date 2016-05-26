@@ -137,8 +137,10 @@ DEP_EXT         = .d
 # Compiler definitions
 CC              = $(TOOLS_BIN)/xtensa-lx106-elf-gcc
 CPP             = $(TOOLS_BIN)/xtensa-lx106-elf-g++
-LD              = $(CC)
 AR              = $(TOOLS_BIN)/xtensa-lx106-elf-ar
+GDB             = $(TOOLS_BIN)/xtensa-lx106-elf-gdb
+LD              = $(CC)
+
 ESP_TOOL        = $(TOOLS_ROOT)/esptool/esptool
 
 ifeq ($(BUILD_RELEASE),1)
@@ -148,8 +150,13 @@ endif
 ifeq ($(BUILD_GDB_STUB),1)
 LIBS        += $(ESP_LIBS)/GDBStub
 C_DEFINES   += -DDEBUG
-OPTIMIZE     = -Os -ggdb
-#OPTIMIZE     = -Og -ggdb
+C_DEFINES   += -DGDBSTUB_CTRLC_BREAK=1
+C_DEFINES   += -DGDBSTUB_USE_OWN_STACK=1
+C_DEFINES   += -DGDBSTUB_REDIRECT_CONSOLE_OUTPUT=1
+C_DEFINES   += -DGDBSTUB_BREAK_ON_INIT=0
+C_DEFINES   += -DATTR_GDBFN=ICACHE_FLASH_ATTR
+S_FLAGS     += -mlongcalls
+OPTIMIZE     = -Og -ggdb
 endif
 
 ifeq ($(BUILD_LWIP_SRC),1)
@@ -288,6 +295,15 @@ otalog:
 usblog:
 	miniterm.py --raw $(UPLOAD_PORT) 115200 || true
 	reset
+
+gdb:
+	rm -rf gdbcmds
+	echo 'set remote hardware-breakpoint-limit 1' >> gdbcmds
+	echo 'set remote hardware-watchpoint-limit 1' >> gdbcmds
+	echo 'set debug xtensa 4' >> gdbcmds
+	echo 'set serial baud 115200' >> gdbcmds
+	echo 'target remote /dev/ttyUSB0' >> gdbcmds
+	$(GDB) -x gdbcmds
 
 stack:
 	rm -f stack.txt && vi stack.txt && awk '/>>>stack>>>/{flag=1;next}/<<<stack<<</{flag=0}flag' stack.txt | awk -e '{ OFS="\n"; $$1=""; print }' | $(TOOLS_BIN)/xtensa-lx106-elf-addr2line -aipfC -e $(MAIN_ELF) | grep -v "?? ??:0"

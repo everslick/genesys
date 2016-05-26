@@ -18,16 +18,7 @@
 */
 
 #ifdef DEBUG
-
-#define GDBSTUB_CTRLC_BREAK             1
-#define GDBSTUB_USE_OWN_STACK           0
-#define GDBSTUB_REDIRECT_CONSOLE_OUTPUT 1
-#define GDBSTUB_BREAK_ON_INIT           1
-
-#define ATTR_GDBFN ICACHE_FLASH_ATTR
-
 #include <gdbstub.h>
-
 #endif
 
 #include "websocket.h"
