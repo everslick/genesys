@@ -251,7 +251,7 @@ char *system_uptime(char buf[]) {
   int   hours = (time % 86400) / 3600; // 86400 equals secs per day
   int minutes = (time % 3600)  /   60; //  3600 equals secs per minute
   int seconds =  time % 60;
-  char d[8] = { '\0' };
+  char d[12] = { '\0' };
 
   if (days != 0) {
     snprintf(d, sizeof (d), "%i day%s, ", days, (days > 1) ? "s" : "");
