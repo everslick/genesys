@@ -293,7 +293,7 @@ otalog:
 	netcat -l -u -k 49152
 
 usblog:
-	miniterm.py --raw $(UPLOAD_PORT) 115200 || true
+	miniterm.py --raw $(UPLOAD_PORT) $(UPLOAD_SPEED) || true
 	reset
 
 gdb:
@@ -301,8 +301,8 @@ gdb:
 	echo 'set remote hardware-breakpoint-limit 1' >> gdbcmds
 	echo 'set remote hardware-watchpoint-limit 1' >> gdbcmds
 	echo 'set debug xtensa 4' >> gdbcmds
-	echo 'set serial baud 115200' >> gdbcmds
-	echo 'target remote /dev/ttyUSB0' >> gdbcmds
+	echo 'set serial baud $(UPLOAD_SPEED)' >> gdbcmds
+	echo 'target remote $(UPLOAD_PORT)' >> gdbcmds
 	$(GDB) -x gdbcmds
 
 stack:
