@@ -75,7 +75,7 @@ static int modulo(int a, int b) {
   return ((r < 0) ? r + b : r);
 }
 
-static LogLine & log_line(uint16_t index) {
+static LogLine &log_line(uint16_t index) {
   int start = log_lines_index - log_lines_count;
   int idx = modulo(start + index, log_lines_count);
 
@@ -365,7 +365,7 @@ void logregistermessagecb(void (*cb)(const char *)) {
 
 #endif // RELASE
 
-char * log_color_str(char buf[], uint8_t col) {
+char *log_color_str(char buf[], uint8_t col) {
   sprintf(buf, "\033[0;3%im", col);
 
   return (buf);

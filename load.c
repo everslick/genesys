@@ -20,10 +20,10 @@
 #include <user_interface.h>
 #include <stdint.h>
 
-extern void * __real_malloc(uint32_t);
-extern void * __real_calloc(uint32_t, uint32_t);
-extern void * __real_realloc(void *, uint32_t);
-extern void __real_free(void *);
+extern void *__real_malloc(uint32_t);
+extern void *__real_calloc(uint32_t, uint32_t);
+extern void *__real_realloc(void *, uint32_t);
+extern void  __real_free(void *);
 
 extern uint32_t mem_free, yield_count, traffic_count;
 

@@ -204,7 +204,7 @@ void system_count_net_traffic(uint32_t bytes) {
 #endif
 }
 
-SysLoad & system_load_history(uint16_t index) {
+SysLoad &system_load_history(uint16_t index) {
 #ifndef RELEASE
   int start = load_history_index - load_history_count;
   int idx = modulo(start + index, load_history_count);
@@ -245,7 +245,7 @@ uint32_t system_free_sketch_space(void) {
   return (ESP.getFreeSketchSpace());
 }
 
-char * system_uptime(char buf[]) {
+char *system_uptime(char buf[]) {
   time_t time = millis() / 1e3;
   int    days = (time / 86400);
   int   hours = (time % 86400) / 3600; // 86400 equals secs per day
@@ -261,7 +261,7 @@ char * system_uptime(char buf[]) {
   return (buf);
 }
 
-char * system_time(char buf[], time_t time) {
+char *system_time(char buf[], time_t time) {
   if (time == INT_MAX) time = clock_time();
 
   int   hours = (time % 86400) / 3600; // 86400 equals secs per day

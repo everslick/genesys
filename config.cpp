@@ -103,10 +103,6 @@ void config_init(void) {
     log_print(F("CONF: EEPROM too small\n"));
   }
 
-  if (!(config = (struct Config *)malloc(sizeof (Config)))) {
-    log_print(F("CONF: could not allocate memory\n"));
-  }
-
   EEPROM.begin(sizeof (Config));
   config = (Config *)EEPROM.getDataPtr();
 
