@@ -131,18 +131,18 @@ static void ws_event(AsyncWebSocket *server,
 
   switch (type) {
     case WS_EVT_DISCONNECT:
-      log_print(F("WS:   client %i disconnected\n"), client->id());
+      //log_print(F("WS:   client %i disconnected\n"), client->id());
     break;
 
     case WS_EVT_CONNECT:
-      log_print(F("WS:   client %i connected, url: %s\n"),
-        client->id(), server->url()
-      );
+      //log_print(F("WS:   client %i connected, url: %s\n"),
+      //  client->id(), server->url()
+      //);
     break;
 
     case WS_EVT_ERROR:
       log_print(F("WS:   [%s][%u] error(%u): %s\n"),
-        server->url(), client->id(), *((uint16_t*)arg), (char*)data
+        server->url(), client->id(), *((uint16_t *)arg), (char *)data
       );
     break;
 
