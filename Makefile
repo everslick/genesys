@@ -23,10 +23,11 @@ SKETCH = genesys.ino
 
 LIBS = $(ESP_LIBS)/ESP8266WiFi       \
        $(ESP_LIBS)/ESP8266mDNS       \
-       $(ESP_LIBS)/ESP8266WebServer  \
+       $(ESP_LIBS)/ESPAsyncTCP       \
+       $(ESP_LIBS)/ESPAsyncWebServer \
        $(ESP_LIBS)/EEPROM            \
        $(ESP_LIBS)/Hash              \
-       $(ESP_LIBS)/arduinoWebSockets \
+       $(ESP_LIBS)/ArduinoOTA        \
        .
 
 BUILD_SILENTLY        ?= 0

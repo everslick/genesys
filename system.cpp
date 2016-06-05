@@ -37,7 +37,7 @@ extern "C" {
 #define LOAD_HISTORY_INTERVAL   500
 #define NET_TRAFFIC_FULL      50000
 
-#define YIELD_COUNT_SCALER 10 // reduce cpu load by factor 10
+#define YIELD_COUNT_SCALER 5 // reduce cpu load by factor
 
 extern "C" cont_t g_cont;
 

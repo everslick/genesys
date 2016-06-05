@@ -18,7 +18,7 @@
 */
 
 #include <ESP8266WiFi.h>
-#include <ESP8266WebServer.h>
+#include <ESPAsyncWebServer.h>
 #include <StreamString.h>
 #include <limits.h>
 
@@ -32,7 +32,7 @@
 
 #include "http.h"
 
-static ESP8266WebServer *http = NULL;
+AsyncWebServer *http = NULL;
 
 static char session_key[16];
 
@@ -48,28 +48,22 @@ static void create_session_key(void) {
   session_key[sizeof (session_key) - 1] = '\0';
 }
 
-static bool setup_complete(void) {
-  String header;
-
+static bool setup_complete(AsyncWebServerRequest *request) {
   if (strlen(config->user_name) && strlen(config->user_pass)) {
     return (true);
   }
 
-  header += F("HTTP/1.1 301 OK\r\n");
-  header += F("Location: /setup\r\n");
-  header += F("Cache-Control: no-cache\r\n\r\n");
-
-  http->sendContent(header);
-  system_count_net_traffic(header.length());
+  AsyncWebServerResponse *response = request->beginResponse(301); 
+  response->addHeader("Location", "/setup");
+  response->addHeader("Cache-Control", "no-cache");
+  request->send(response);
 
   return (false);
 }
 
-static bool authenticated(void) {
-  String header;
-
-  if (http->hasHeader("Cookie")){
-    String cookie = http->header("Cookie");
+static bool authenticated(AsyncWebServerRequest *request) {
+  if (request->hasHeader("Cookie")){
+    String cookie = request->header("Cookie");
     String name = "GENESYS_SESSION_KEY=";
 
     if (cookie.indexOf(name + session_key) != -1) {
@@ -77,30 +71,23 @@ static bool authenticated(void) {
     }
   }
 
-  header += F("HTTP/1.1 301 OK\r\n");
-  header += F("Location: /login\r\n");
-  header += F("Cache-Control: no-cache\r\n\r\n");
-
-  http->sendContent(header);
-  system_count_net_traffic(header.length());
+  AsyncWebServerResponse *response = request->beginResponse(301); 
+  response->addHeader("Location", "/login");
+  response->addHeader("Cache-Control", "no-cache");
+  request->send(response);
 
   return (false);
 }
 
-static void send_header(const String &session, const String &redirect) {
-  String header;
+static void send_header(AsyncWebServerRequest *request,
+                        const String &session,
+                        const String &redirect) {
 
-  header += F("HTTP/1.1 301 OK\r\n");
-  header += F("Set-Cookie: GENESYS_SESSION_KEY=");
-  header += session;
-  header += F("\r\n");
-  header += F("Location: ");
-  header += redirect;
-  header += F("\r\n");
-  header += F("Cache-Control: no-cache\r\n\r\n");
-
-  http->sendContent(header);
-  system_count_net_traffic(header.length());
+  AsyncWebServerResponse *response = request->beginResponse(301); 
+  response->addHeader("Set-Cookie", "GENESYS_SESSION_KEY=" + session);
+  response->addHeader("Location", redirect);
+  response->addHeader("Cache-Control", "no-cache");
+  request->send(response);
 }
 
 static bool store_str(char *conf, String value, int len) {
@@ -153,16 +140,16 @@ static bool store_bool(uint8_t &conf, String value) {
 
 static bool store_config(String name, String value) {
   if (name == "user_name")
-	 return (store_str(config->user_name, value, 64));
+    return (store_str(config->user_name, value, 64));
   if (name == "user_pass")
-	 return (store_str(config->user_pass, value, 64));
+   return (store_str(config->user_pass, value, 64));
 
   if (name == "wifi_ssid_sel")
-	 return (store_str(config->wifi_ssid, value, 32));
+   return (store_str(config->wifi_ssid, value, 32));
   if (name == "wifi_ssid")
-	 return (store_str(config->wifi_ssid, value, 32));
+   return (store_str(config->wifi_ssid, value, 32));
   if (name == "wifi_pass")
-	 return (store_str(config->wifi_pass, value, 64));
+   return (store_str(config->wifi_pass, value, 64));
 
   if (name == "ip_static")
     return (store_bool(config->ip_static, value));
@@ -185,116 +172,103 @@ static bool store_config(String name, String value) {
   if (name == "mdns_enabled")
     return (store_bool(config->mdns_enabled, value));
   if (name == "mdns_name")
-	 return (store_str(config->mdns_name, value, 64));
+   return (store_str(config->mdns_name, value, 64));
 
   if (name == "ntp_enabled")
     return (store_bool(config->ntp_enabled, value));
   if (name == "ntp_interval")
     return (store_int(config->ntp_interval, value, 1, 1440));
   if (name == "ntp_server")
-	 return (store_str(config->ntp_server, value, 64));
+   return (store_str(config->ntp_server, value, 64));
 
   if (name == "mqtt_enabled")
     return (store_bool(config->mqtt_enabled, value));
   if (name == "mqtt_server")
-	 return (store_str(config->mqtt_server, value, 64));
+   return (store_str(config->mqtt_server, value, 64));
   if (name == "mqtt_user")
-	 return (store_str(config->mqtt_user, value, 64));
+   return (store_str(config->mqtt_user, value, 64));
   if (name == "mqtt_pass")
-	 return (store_str(config->mqtt_pass, value, 64));
+   return (store_str(config->mqtt_pass, value, 64));
   if (name == "mqtt_interval")
     return (store_int(config->mqtt_interval, value, 1, 3600));
 
   return (false);
 }
 
-static void handle_update_start_cb(void) {
-  String webpage;
-
-  if (!webpage.reserve(512)) {
-    log_print(F("HTTP: failed to allocate memory\n"));
-  }
-
-  html_insert_page_header(webpage);
-  html_insert_page_redirect(webpage, 30);
-  html_insert_page_body(webpage);
-
-  webpage += F("<br />Updating ...\n");
-
-  html_insert_page_footer(webpage);
-
-  http->send(200, "text/html", webpage);
-  system_count_net_traffic(webpage.length());
-}
-
-static void handle_update_finished_cb(void) {
+static void handle_update_finished_cb(AsyncWebServerRequest *request) {
   String response;
 
   response += F("Update ");
   response += (Update.hasError()) ? "FAILED" : "OK";
   response += F("!\nRebooting ...\n\n");
 
-  http->send(200, "text/plain", response);
+  request->send(200, "text/plain", response);
   system_count_net_traffic(response.length());
 
   system_reboot();
 }
 
-static void handle_update_progress_cb(void) {
+static void handle_update_progress_cb(AsyncWebServerRequest *request,
+                                      String filename,
+                                      size_t index,
+                                      uint8_t *data,
+                                      size_t len,
+                                      bool final) {
+
   uint32_t free_space = (system_free_sketch_space() - 0x1000) & 0xFFFFF000;
   static int received = 0, last_perc = -1;
-  HTTPUpload &upload = http->upload();
   StreamString out;
 
-  if (upload.status == UPLOAD_FILE_START){
+  if (!index){
     log_print(F("HTTP: starting OTA update ...\n"));
     log_print(F("HTTP: available space: %u bytes\n"), free_space);
-    log_print(F("HTTP: filename: %s\n"), upload.filename.c_str());
+    log_print(F("HTTP: filename: %s\n"), filename.c_str());
 
     websocket_broadcast_message("update");
-    system_delay(250);
-    websocket_disconnect_clients();
+    //websocket_disconnect_clients();
 
     log_poll();
 
     if (!Update.begin(free_space)) {
       Update.printError(out);
       log_print(out.readString().c_str());
-    }
-  } else if (upload.status == UPLOAD_FILE_WRITE) {
-    if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
-      Update.printError(out);
-      log_print(out.readString().c_str());
     } else {
-      received += upload.currentSize;
-
-      int perc = 100 * received / system_sketch_size();
-
-      if (perc != last_perc) {
-        log_progress(F("HTTP: received "), "%", perc);
-        last_perc = perc;
-      }
-
-      system_count_net_traffic(upload.currentSize);
+      Update.runAsync(true);
     }
-  } else if (upload.status == UPLOAD_FILE_END) {
+  }
+
+  if (Update.write(data, len) != len) {
+    Update.printError(out);
+    log_print(out.readString().c_str());
+  } else {
+    received += len;
+
+    int perc = 100 * received / system_sketch_size();
+
+    if (perc != last_perc) {
+      log_progress(F("HTTP: received "), "%", perc);
+      last_perc = perc;
+    }
+
+    system_count_net_traffic(len);
+  }
+
+  if (final) {
     if (Update.end(true)) { // true to set the size to the current progress
-      log_print(F("HTTP: update successful: %u bytes\n"), upload.totalSize);
+      log_print(F("HTTP: update successful: %u bytes\n"), index + len);
     } else {
       Update.printError(out);
       log_print(out.readString().c_str());
     }
   }
-
-  system_yield();
 }
 
-static void handle_info_cb(void) {
+static void handle_info_cb(AsyncWebServerRequest *request) {
 #ifndef RELEASE
   String webpage;
 
-  if (!setup_complete()) return;
-  if (!authenticated()) return;
+  if (!setup_complete(request)) return;
+  if (!authenticated(request)) return;
 
   if (!webpage.reserve(4*1024)) {
     log_print(F("HTTP: failed to allocate memory\n"));
@@ -306,15 +280,15 @@ static void handle_info_cb(void) {
   html_insert_info_content(webpage);
   html_insert_page_footer(webpage);
 
-  http->send(200, "text/html", webpage);
+  request->send(200, "text/html", webpage);
   system_count_net_traffic(webpage.length());
 #endif
 }
 
-static void handle_reboot_cb(void) {
+static void handle_reboot_cb(AsyncWebServerRequest *request) {
   String webpage;
 
-  if (!authenticated()) return;
+  if (!authenticated(request)) return;
 
   if (!webpage.reserve(512)) {
     log_print(F("HTTP: failed to allocate memory\n"));
@@ -328,18 +302,18 @@ static void handle_reboot_cb(void) {
 
   html_insert_page_footer(webpage);
 
-  http->send(200, "text/html", webpage);
+  request->send(200, "text/html", webpage);
   system_count_net_traffic(webpage.length());
 
   system_reboot();
 }
 
-static void handle_sys_cb(void) {
+static void handle_sys_cb(AsyncWebServerRequest *request) {
 #ifndef RELEASE
   String webpage;
 
-  if (!setup_complete()) return;
-  if (!authenticated()) return;
+  if (!setup_complete(request)) return;
+  if (!authenticated(request)) return;
 
   if (!webpage.reserve(4*1024)) {
     log_print(F("HTTP: failed to allocate memory\n"));
@@ -351,17 +325,17 @@ static void handle_sys_cb(void) {
   html_insert_sys_content(webpage);
   html_insert_page_footer(webpage);
 
-  http->send(200, "text/html", webpage);
+  request->send(200, "text/html", webpage);
   system_count_net_traffic(webpage.length());
 #endif
 }
 
-static bool validate_config(String &html) {
+static bool validate_config(AsyncWebServerRequest *request, String &html) {
   bool config_ok = true;
 
-  for (int i=0; i<http->args(); i++) {
-    String name = http->argName(i);
-    String arg = http->arg(i);
+  for (int i=0; i<request->args(); i++) {
+    String name = request->argName(i);
+    String arg = request->arg(i);
 
     if (!store_config(name, arg)) {
       html += name + " has an invalid value!<br />\n";
@@ -379,12 +353,12 @@ static bool validate_config(String &html) {
   return (config_ok);
 }
 
-static void handle_conf_cb(void) {
+static void handle_conf_cb(AsyncWebServerRequest *request) {
   bool store_new_config = false;
   String webpage;
 
-  if (!setup_complete()) return;
-  if (!authenticated()) return;
+  if (!setup_complete(request)) return;
+  if (!authenticated(request)) return;
 
   if (!webpage.reserve(7*1024)) {
     log_print(F("HTTP: failed to allocate memory\n"));
@@ -394,15 +368,32 @@ static void handle_conf_cb(void) {
   html_insert_page_body(webpage);
   html_insert_page_menu(webpage);
 
-  if (http->method() == HTTP_GET) {
+  if (request->method() == HTTP_GET) {
     html_insert_conf_content(webpage);
   } else {
-    store_new_config = validate_config(webpage);
+    store_new_config = validate_config(request, webpage);
   }
 
   html_insert_page_footer(webpage);
 
-  http->send(200, "text/html", webpage);
+  const char *html = webpage.c_str();
+  size_t len = webpage.length();
+  String type = "text/html";
+
+  AsyncWebServerResponse *response = request->beginResponse(type, len,
+    [len, html](uint8_t *buffer, size_t max, size_t sent) -> size_t {
+      if (len - sent > max) {
+        // there is more to send than fits in max buffer
+        memcpy((char *)buffer, html + sent, max);
+        return (max);
+      }
+      // last chunk
+      memcpy((char *)buffer, html + sent, strlen(html + sent));
+      return (strlen(html + sent)); // Return from here to end of indexhtml
+    }
+  );
+
+  request->send(response);  
   system_count_net_traffic(webpage.length());
 
   if (store_new_config) {
@@ -411,12 +402,12 @@ static void handle_conf_cb(void) {
   }
 }
 
-static void handle_setup_cb(void) {
+static void handle_setup_cb(AsyncWebServerRequest *request) {
   bool store_new_config = false;
   String webpage;
 
   if (strlen(config->user_name) && strlen(config->user_pass)) {
-    if (!authenticated()) return;
+    if (!authenticated(request)) return;
   }
 
   if (!webpage.reserve(4*1024)) {
@@ -450,15 +441,15 @@ static void handle_setup_cb(void) {
 
   webpage += html_page_body;
 
-  if (http->method() == HTTP_GET) {
+  if (request->method() == HTTP_GET) {
     html_insert_setup_content(webpage);
   } else {
-    store_new_config = validate_config(webpage);
+    store_new_config = validate_config(request, webpage);
   }
 
   webpage += html_page_footer;
 
-  http->send(200, "text/html", webpage);
+  request->send(200, "text/html", webpage);
   system_count_net_traffic(webpage.length());
 
   if (store_new_config) {
@@ -467,10 +458,10 @@ static void handle_setup_cb(void) {
   }
 }
 
-static void handle_login_cb(void) {
+static void handle_login_cb(AsyncWebServerRequest *request) {
   String webpage, header, msg;
 
-  if (!setup_complete()) return;
+  if (!setup_complete(request)) return;
 
   msg = "Enter username and password!";
 
@@ -478,12 +469,12 @@ static void handle_login_cb(void) {
     log_print(F("HTTP: failed to allocate memory\n"));
   }
 
-  if (http->hasHeader("Cookie")) {
-    String cookie = http->header("Cookie");
+  if (request->hasHeader("Cookie")) {
+    String cookie = request->header("Cookie");
   }
 
-  if (http->hasArg("LOGOUT")) {
-    send_header("0", "/login");
+  if (request->hasArg("LOGOUT")) {
+    send_header(request, "0", "/login");
 
     return;
   }
@@ -491,9 +482,9 @@ static void handle_login_cb(void) {
   String user = config->user_name;
   String pass = config->user_pass;
 
-  if (http->hasArg("USER") && http->hasArg("PASS")){
-    if ((http->arg("USER") == user) && (http->arg("PASS") == pass)) {
-      send_header(session_key, "/");
+  if (request->hasArg("USER") && request->hasArg("PASS")){
+    if ((request->arg("USER") == user) && (request->arg("PASS") == pass)) {
+      send_header(request, session_key, "/");
 
       return;
     }
@@ -509,15 +500,15 @@ static void handle_login_cb(void) {
 
   webpage += html_page_footer;
 
-  http->send(200, "text/html", webpage);
+  request->send(200, "text/html", webpage);
   system_count_net_traffic(webpage.length());
 }
 
-static void handle_root_cb(void) {
+static void handle_root_cb(AsyncWebServerRequest *request) {
   String webpage;
 
-  if (!setup_complete()) return;
-  if (!authenticated()) return;
+  if (!setup_complete(request)) return;
+  if (!authenticated(request)) return;
 
   if (!webpage.reserve(1*1024)) {
     log_print(F("HTTP: failed to allocate memory\n"));
@@ -530,23 +521,31 @@ static void handle_root_cb(void) {
   html_insert_root_content(webpage);
   html_insert_page_footer(webpage);
 
-  http->send(200, "text/html", webpage);
+  request->send(200, "text/html", webpage);
   system_count_net_traffic(webpage.length());
 }
 
-static void handle_style_cb(void) {
-  http->sendHeader("Cache-Control", "max-age=86400");
-  http->send(200, "text/css", html_page_style);
+static void handle_style_cb(AsyncWebServerRequest *request) {
+  AsyncWebServerResponse *response;
+
+  response = request->beginResponse(200, "text/css", html_page_style);
+  response->addHeader("Cache-Control", "max-age=86400");
+  request->send(response);
+
   system_count_net_traffic(strlen_P((PGM_P)html_page_style));
 }
 
-static void handle_script_cb(void) {
-  http->sendHeader("Cache-Control", "max-age=86400");
-  http->send(200, "text/javascript", html_page_script);
+static void handle_script_cb(AsyncWebServerRequest *request) {
+  AsyncWebServerResponse *response;
+
+  response = request->beginResponse(200, "text/javascript", html_page_script);
+  response->addHeader("Cache-Control", "max-age=86400");
+  request->send(response);
+
   system_count_net_traffic(strlen_P((PGM_P)html_page_script));
 }
 
-static void handle_404_cb(void) {
+static void handle_404_cb(AsyncWebServerRequest *request) {
 #ifndef RELEASE
   String webpage;
 
@@ -560,21 +559,21 @@ static void handle_404_cb(void) {
   webpage += F("<h3>404 File Not Found</h3>\n");
   webpage += F("<p>\n");
   webpage += F("URI: ");
-  webpage += http->uri();
+  webpage += request->url();
   webpage += F("<br />\nMethod: ");
-  webpage += (http->method() == HTTP_GET) ? "GET" : "POST";
+  webpage += (request->method() == HTTP_GET) ? "GET" : "POST";
   webpage += F("<br />\nArguments: ");
-  webpage += http->args();
+  webpage += request->args();
   webpage += F("<br />\n");
 
-  for (uint8_t i = 0; i < http->args(); i++) {
-    webpage += " " + http->argName(i) + ": " + http->arg(i) + "<br />\n";
+  for (uint8_t i = 0; i < request->args(); i++) {
+    webpage += " " + request->argName(i) + ": " + request->arg(i) + "<br />\n";
   }
 
   webpage += F("</p>\n");
   webpage += html_page_footer;
 
-  http->send(404, "text/html", webpage);
+  request->send(404, "text/html", webpage);
   system_count_net_traffic(webpage.length());
 #endif
 }
@@ -584,7 +583,7 @@ bool http_init(void) {
 
   create_session_key();
 
-  http = new ESP8266WebServer(80);
+  http = new AsyncWebServer(80);
 
   http->onNotFound(handle_404_cb);
 
@@ -597,20 +596,11 @@ bool http_init(void) {
   http->on("/setup",     handle_setup_cb);
   http->on("/conf",      handle_conf_cb);
 
-  http->on("/style.css", HTTP_GET, handle_style_cb);
-  http->on("/script.js", HTTP_GET, handle_script_cb);
+  http->on("/style.css", HTTP_GET,  handle_style_cb);
+  http->on("/script.js", HTTP_GET,  handle_script_cb);
 
-  http->on("/update",    HTTP_GET,  handle_update_start_cb);
   http->on("/update",    HTTP_POST, handle_update_finished_cb,
                                     handle_update_progress_cb);
-
-  // the list of headers to be recorded
-  const char *headerkeys[] = { "User-Agent", "Cookie" };
-  size_t headerkeyssize = sizeof (headerkeys) / sizeof (char *);
-
-  // ask server to track these headers
-  http->collectHeaders(headerkeys, headerkeyssize);
-
   html_init();
   http->begin();
 
@@ -619,10 +609,6 @@ bool http_init(void) {
 
 bool http_poll(void) {
   if (!http) return (false);
-
-  //if (net_connected()) {
-  http->handleClient(); // answer http requests
-  //}
 
   return (true);
 }

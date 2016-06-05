@@ -17,7 +17,7 @@
     Copyright (C) 2016 Clemens Kirchgatterer <clemens@1541.org>.
 */
 
-#include <WebSocketsServer.h>
+#include <ESPAsyncWebServer.h>
 
 #include <limits.h>
 
@@ -28,22 +28,11 @@
 
 #include "websocket.h"
 
-// install arduinoWebsockets into Arduino/libraries:
-// git clone git@github.com:Links2004/arduinoWebSockets.git
+extern AsyncWebServer *http;
 
-enum {
-  CLIENT_REQUEST_NONE,
-  CLIENT_REQUEST_TIME,
-  CLIENT_REQUEST_LOAD,
-  CLIENT_REQUEST_LOG,
-  CLIENT_REQUEST_ADC
-};
+static AsyncWebSocket *websocket = NULL;
 
-static int client_request[WEBSOCKETS_SERVER_CLIENT_MAX];
-
-static WebSocketsServer *websocket = NULL;
-
-static void send_time_data(int client) {
+static void send_time_data(AsyncWebSocketClient *client) {
 #ifndef RELEASE
   char time[16], uptime[24];
   Buffer data;
@@ -61,14 +50,12 @@ static void send_time_data(int client) {
   data += time;
   data += "\"}";
 
-  websocket->sendTXT(client, (char *)data.data(), data.size());
+  client->text((char *)data.data(), data.size());
   system_count_net_traffic(data.size());
-
-  system_yield();
 #endif
 }
 
-static void send_adc_data(int client) {
+static void send_adc_data(AsyncWebSocketClient *client) {
 #ifndef RELEASE
   Buffer data;
 
@@ -76,14 +63,12 @@ static void send_adc_data(int client) {
   data += String(analogRead(17));
   data += "}";
 
-  websocket->sendTXT(client, (char *)data.data(), data.size());
+  client->text((char *)data.data(), data.size());
   system_count_net_traffic(data.size());
-
-  system_yield();
 #endif
 }
 
-static void send_load_data(int client) {
+static void send_load_data(AsyncWebSocketClient *client) {
 #ifndef RELEASE
   String cpu_data, mem_data, net_data;
   Buffer data(512);
@@ -100,7 +85,6 @@ static void send_load_data(int client) {
     }
   }
  
-  data += "              "; // 14 bytes reserved for header
   data += "{\"type\":\"load\", ";
 
   data += "\"cpu\":{\"values\":[";
@@ -115,63 +99,82 @@ static void send_load_data(int client) {
   data += net_data;
   data += "]}}";
 
-  int len = data.size() - WEBSOCKETS_MAX_HEADER_SIZE;
-  websocket->sendTXT(client, (char *)data.data(), len, true);
+  client->text((char *)data.data(), data.size());
   system_count_net_traffic(data.size());
-
-  system_yield();
 #endif
 }
 
-static void send_log_data(int client) {
+static void send_log_data(AsyncWebSocketClient *client) {
 #ifndef RELEASE
   String log;
 
   log.reserve(3*1024);
 
-  log += "              "; // 14 bytes reserved for header
   log += "{\"type\":\"log\",\"text\":\"";
   log_dump_html(log);
   log += "\"}";
 
-  int len = log.length() - WEBSOCKETS_MAX_HEADER_SIZE;
-  websocket->sendTXT(client, (char *)log.c_str(), len, true);
+  client->text(log);
   system_count_net_traffic(log.length());
-
-  system_yield();
 #endif
 }
 
-static void ws_event(uint8_t client, WStype_t type, uint8_t *data, size_t len) {
-  IPAddress ip = websocket->remoteIP(client);
+static void ws_event(AsyncWebSocket *server,
+                     AsyncWebSocketClient *client,
+                     AwsEventType type,
+                     void *arg,
+                     uint8_t *data,
+                     size_t len){
+
+  //IPAddress ip = websocket->remoteIP(client);
+  char buffer[8];
 
   switch (type) {
-    case WStype_DISCONNECTED:
-      log_print(F("WS:   client %i disconnected\n"), client);
-      client_request[client] = CLIENT_REQUEST_NONE;
+    case WS_EVT_DISCONNECT:
+      log_print(F("WS:   client %i disconnected\n"), client->id());
     break;
 
-    case WStype_CONNECTED:
-      log_print(F("WS:   client %i connected from %d.%d.%d.%d url: %s\n"),
-        client, ip[0], ip[1], ip[2], ip[3], data
+    case WS_EVT_CONNECT:
+      log_print(F("WS:   client %i connected, url: %s\n"),
+        client->id(), server->url()
       );
     break;
 
-    case WStype_TEXT:
-      if (!strcmp((const char *)data, "time")) {
-        client_request[client] = CLIENT_REQUEST_TIME;
-      }
+    case WS_EVT_ERROR:
+      log_print(F("WS:   [%s][%u] error(%u): %s\n"),
+        server->url(), client->id(), *((uint16_t*)arg), (char*)data
+      );
+    break;
 
-      if (!strcmp((const char *)data, "load")) {
-        client_request[client] = CLIENT_REQUEST_LOAD;
-      }
+    case WS_EVT_PONG:
+      //pong message was received (in response to a ping request maybe)
+      log_print("WS:   [%s][%u] pong[%u]: %s\n",
+        server->url(), client->id(), len, (len) ? (char *)data : ""
+      );
+    break;
 
-      if (!strcmp((const char *)data, "log")) {
-        client_request[client] = CLIENT_REQUEST_LOG;
-      }
+    case WS_EVT_DATA:
+      if (len < sizeof (buffer)) {
+        memcpy(buffer, data, len);
+        buffer[len] = '\0';
 
-      if (!strcmp((const char *)data, "adc")) {
-        client_request[client] = CLIENT_REQUEST_ADC;
+        if (!strcmp((const char *)buffer, "time")) {
+          send_time_data(client);
+        }
+
+        if (!strcmp((const char *)buffer, "load")) {
+          send_load_data(client);
+        }
+
+        if (!strcmp((const char *)buffer, "log")) {
+          send_log_data(client);
+        }
+
+        if (!strcmp((const char *)buffer, "adc")) {
+          send_adc_data(client);
+        }
+      } else {
+        log_print("WS:   text too large, len = %i\n", len);
       }
     break;
   }
@@ -184,46 +187,31 @@ void websocket_broadcast_message(const char *msg) {
   data += msg;
   data += "\"}";
 
-  websocket->broadcastTXT((char *)data.data(), data.size());
+  websocket->textAll((char *)data.data(), data.size());
   system_count_net_traffic(data.size());
-
-  system_yield();
 }
 
 bool websocket_init(void) {
   if (websocket) return (false);
 
-  for (int i=0; i<WEBSOCKETS_SERVER_CLIENT_MAX; i++) {
-    client_request[i] = CLIENT_REQUEST_NONE;
-  }
-
-  websocket = new WebSocketsServer(81, "", "genesys");
+  websocket = new AsyncWebSocket("/ws"); // access at ws://[esp ip]/ws
   websocket->onEvent(ws_event);
-  websocket->begin();
+  http->addHandler(websocket);
 
   return (true);
 }
 
 void websocket_poll(void) {
-  if (websocket) {
-    websocket->loop();
-
-    for (int i=0; i<WEBSOCKETS_SERVER_CLIENT_MAX; i++) {
-      switch (client_request[i]) {
-        case CLIENT_REQUEST_TIME:  send_time_data(i);  break;
-        case CLIENT_REQUEST_LOAD:  send_load_data(i);  break;
-        case CLIENT_REQUEST_LOG:   send_log_data(i);   break;
-        case CLIENT_REQUEST_ADC:   send_adc_data(i);   break;
-      }
-
-      client_request[i] = CLIENT_REQUEST_NONE;
-    }
-  }
 }
 
 void websocket_disconnect_clients(void) {
   if (websocket) {
-    websocket->disconnect();
     log_print(F("WS:   disconnected all clients\n"));
+
+    // Disable client connections    
+    websocket->enable(false);
+
+    // Close them
+    websocket->closeAll();
   }
 }

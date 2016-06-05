@@ -472,7 +472,7 @@ bool html_init(void) {
 
   html_sys_fmt = PSTR(" \
     <script>\n \
-      var connection = new WebSocket('ws://%s:81/', ['genesys']);\n \
+      var connection = new WebSocket('ws://%s:80/ws');\n \
       var reload = true;\n \
       \n \
       function load_timer() {\n \
