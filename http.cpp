@@ -225,7 +225,6 @@ static void handle_update_progress_cb(AsyncWebServerRequest *request,
     log_print(F("HTTP: filename: %s\n"), filename.c_str());
 
     websocket_broadcast_message("update");
-    //websocket_disconnect_clients();
 
     log_poll();
 
