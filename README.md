@@ -17,7 +17,6 @@ Main Features
 * allows commands to be sent via debug log back channel
 * rudimentary visualization of CPU load, memory usage and network traffic
 * over the air updates (via upload and ArduinoOTA)
-* AsyncWebServer
 * support for websockets, MQTT, mDNS
 * millisecond precision NTP implementation
 * support static IP configuration as well as DHCP
@@ -170,10 +169,10 @@ provide information about the hardware and resource usage. For one there ist the
 
 ![Info Page](https://cloud.githubusercontent.com/assets/1909551/15258781/b9069de0-194d-11e6-8f8b-bfa347236899.jpg)
 
-The [Sys] page gives insights to the resources currently consumed (heap, cpu, net)
+The [SYS] page gives insights to the resources currently consumed (heap, cpu, net)
 and shows the last 20 loglines.
 
-![Sys Page](https://cloud.githubusercontent.com/assets/1909551/15258779/b8f6ccb2-194d-11e6-9cf8-c637fa1e35ec.jpg)
+![System Page](https://cloud.githubusercontent.com/assets/1909551/15258779/b8f6ccb2-194d-11e6-9cf8-c637fa1e35ec.jpg)
 
 TODO
 ----
