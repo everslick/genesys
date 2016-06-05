@@ -16,7 +16,8 @@ Main Features
 * disable logs when compiling RELEASE version
 * allows commands to be sent via debug log back channel
 * rudimentary visualization of CPU load, memory usage and network traffic
-* over the air updates
+* over the air updates (via upload and ArduinoOTA)
+* AsyncWebServer
 * support for websockets, MQTT, mDNS
 * millisecond precision NTP implementation
 * support static IP configuration as well as DHCP
@@ -42,10 +43,13 @@ along with Genesys.  If not, see <http://www.gnu.org/licenses/>.
 Installation
 ------------
 Besides the ESP-Arduino-Core <https://github.com/esp8266/Arduino> Genesys
-needs some 3rd party libraries such as arduinoWebSockets
-<https://github.com/Links2004/arduinoWebSockets> and esp-mqtt-arduino
-<https://github.com/i-n-g-o/esp-mqtt-arduino>. The following script can be
-used to set up the build environment and dependencies (change as needed):
+needs some 3rd party libraries such as:
+
+* ESPAsyncTCP <https://github.com/me-no-dev/ESPAsyncTCP>
+* ESPAsyncWebServer <https://github.com/me-no-dev/ESPAsyncWebServer>
+* esp-mqtt-arduino <https://github.com/i-n-g-o/esp-mqtt-arduino>
+
+The following script can be used to set up the build environment and dependencies (change as needed):
 
 ```
 mkdir -p ~/Devel/ESP8266
@@ -54,7 +58,8 @@ git clone git@github.com:esp8266/Arduino.git
 cd Arduino/tools
 python get.py
 cd ../libraries
-git clone git@github.com:Links2004/arduinoWebSockets.git
+git clone git@github.com:me-no-dev/ESPAsyncTCP.git
+git clone git@github.com:me-no-dev/ESPAsyncWebServer.git
 git clone git@github.com:i-n-g-o/esp-mqtt-arduino.git
 cd ~/Devel/ESP8266
 git clone git@github.com:everslick/genesys.git
@@ -173,6 +178,7 @@ and shows the last 20 loglines.
 TODO
 ----
 * improved documentation
+* move to async MQTT
 * configurable soft AP SSID
 * disable password fields when wifi is unencrypted
 * TLS support for MQTT
