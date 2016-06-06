@@ -84,10 +84,37 @@ static void send_header(AsyncWebServerRequest *request,
                         const String &redirect) {
 
   AsyncWebServerResponse *response = request->beginResponse(301); 
+
   response->addHeader("Set-Cookie", "GENESYS_SESSION_KEY=" + session);
   response->addHeader("Location", redirect);
   response->addHeader("Cache-Control", "no-cache");
+
   request->send(response);
+}
+
+static void send_page(AsyncWebServerRequest *request,
+                      const String &webpage,
+                      const String &type = "text/html") {
+
+  const char *html = webpage.c_str();
+  size_t len = webpage.length();
+
+  AsyncWebServerResponse *response = request->beginResponse(type, len,
+    [len, html](uint8_t *buffer, size_t max, size_t sent) -> size_t {
+      if (len - sent > max) {
+        // there is more to send than fits in max buffer
+        memcpy((char *)buffer, html + sent, max);
+        return (max);
+      }
+
+      // last chunk
+      memcpy((char *)buffer, html + sent, len - sent);
+      return (len - sent);
+    }
+  );
+
+  request->send(response);
+  system_count_net_traffic(webpage.length());
 }
 
 static bool store_str(char *conf, String value, int len) {
@@ -202,8 +229,7 @@ static void handle_update_finished_cb(AsyncWebServerRequest *request) {
   response += (Update.hasError()) ? "FAILED" : "OK";
   response += F("!\nRebooting ...\n\n");
 
-  request->send(200, "text/plain", response);
-  system_count_net_traffic(response.length());
+  send_page(request, response, "text/plain");
 
   system_reboot();
 }
@@ -224,9 +250,9 @@ static void handle_update_progress_cb(AsyncWebServerRequest *request,
     log_print(F("HTTP: available space: %u bytes\n"), free_space);
     log_print(F("HTTP: filename: %s\n"), filename.c_str());
 
-    websocket_broadcast_message("update");
-
     log_poll();
+
+    websocket_broadcast_message("update");
 
     if (!Update.begin(free_space)) {
       Update.printError(out);
@@ -279,8 +305,7 @@ static void handle_info_cb(AsyncWebServerRequest *request) {
   html_insert_info_content(webpage);
   html_insert_page_footer(webpage);
 
-  request->send(200, "text/html", webpage);
-  system_count_net_traffic(webpage.length());
+  send_page(request, webpage);
 #endif
 }
 
@@ -301,8 +326,7 @@ static void handle_reboot_cb(AsyncWebServerRequest *request) {
 
   html_insert_page_footer(webpage);
 
-  request->send(200, "text/html", webpage);
-  system_count_net_traffic(webpage.length());
+  send_page(request, webpage);
 
   system_reboot();
 }
@@ -324,8 +348,7 @@ static void handle_sys_cb(AsyncWebServerRequest *request) {
   html_insert_sys_content(webpage);
   html_insert_page_footer(webpage);
 
-  request->send(200, "text/html", webpage);
-  system_count_net_traffic(webpage.length());
+  send_page(request, webpage);
 #endif
 }
 
@@ -375,25 +398,7 @@ static void handle_conf_cb(AsyncWebServerRequest *request) {
 
   html_insert_page_footer(webpage);
 
-  const char *html = webpage.c_str();
-  size_t len = webpage.length();
-  String type = "text/html";
-
-  AsyncWebServerResponse *response = request->beginResponse(type, len,
-    [len, html](uint8_t *buffer, size_t max, size_t sent) -> size_t {
-      if (len - sent > max) {
-        // there is more to send than fits in max buffer
-        memcpy((char *)buffer, html + sent, max);
-        return (max);
-      }
-      // last chunk
-      memcpy((char *)buffer, html + sent, strlen(html + sent));
-      return (strlen(html + sent)); // Return from here to end of indexhtml
-    }
-  );
-
-  request->send(response);  
-  system_count_net_traffic(webpage.length());
+  send_page(request, webpage);
 
   if (store_new_config) {
     config_write();
@@ -448,8 +453,7 @@ static void handle_setup_cb(AsyncWebServerRequest *request) {
 
   webpage += html_page_footer;
 
-  request->send(200, "text/html", webpage);
-  system_count_net_traffic(webpage.length());
+  send_page(request, webpage);
 
   if (store_new_config) {
     config_write();
@@ -499,8 +503,7 @@ static void handle_login_cb(AsyncWebServerRequest *request) {
 
   webpage += html_page_footer;
 
-  request->send(200, "text/html", webpage);
-  system_count_net_traffic(webpage.length());
+  send_page(request, webpage);
 }
 
 static void handle_root_cb(AsyncWebServerRequest *request) {
@@ -520,28 +523,15 @@ static void handle_root_cb(AsyncWebServerRequest *request) {
   html_insert_root_content(webpage);
   html_insert_page_footer(webpage);
 
-  request->send(200, "text/html", webpage);
-  system_count_net_traffic(webpage.length());
+  send_page(request, webpage);
 }
 
 static void handle_style_cb(AsyncWebServerRequest *request) {
-  AsyncWebServerResponse *response;
-
-  response = request->beginResponse(200, "text/css", html_page_style);
-  response->addHeader("Cache-Control", "max-age=86400");
-  request->send(response);
-
-  system_count_net_traffic(strlen_P((PGM_P)html_page_style));
+  send_page(request, html_page_style, "text/css");
 }
 
 static void handle_script_cb(AsyncWebServerRequest *request) {
-  AsyncWebServerResponse *response;
-
-  response = request->beginResponse(200, "text/javascript", html_page_script);
-  response->addHeader("Cache-Control", "max-age=86400");
-  request->send(response);
-
-  system_count_net_traffic(strlen_P((PGM_P)html_page_script));
+  send_page(request, html_page_script, "text/javascript");
 }
 
 static void handle_404_cb(AsyncWebServerRequest *request) {
