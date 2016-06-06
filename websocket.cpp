@@ -127,7 +127,6 @@ static void ws_event(AsyncWebSocket *server,
                      size_t len){
 
   //IPAddress ip = websocket->remoteIP(client);
-  char buffer[8];
 
   switch (type) {
     case WS_EVT_DISCONNECT:
@@ -154,27 +153,17 @@ static void ws_event(AsyncWebSocket *server,
     break;
 
     case WS_EVT_DATA:
-      if (len < sizeof (buffer)) {
-        memcpy(buffer, data, len);
-        buffer[len] = '\0';
-
-        if (!strcmp((const char *)buffer, "time")) {
-          send_time_data(client);
-        }
-
-        if (!strcmp((const char *)buffer, "load")) {
-          send_load_data(client);
-        }
-
-        if (!strcmp((const char *)buffer, "log")) {
-          send_log_data(client);
-        }
-
-        if (!strcmp((const char *)buffer, "adc")) {
-          send_adc_data(client);
-        }
-      } else {
-        log_print("WS:   text too large, len = %i\n", len);
+      if (!strncmp((const char *)data, "time", len)) {
+        send_time_data(client);
+      }
+      if (!strncmp((const char *)data, "load", len)) {
+        send_load_data(client);
+      }
+      if (!strncmp((const char *)data, "log", len)) {
+        send_log_data(client);
+      }
+      if (!strncmp((const char *)data, "adc", len)) {
+        send_adc_data(client);
       }
     break;
   }
