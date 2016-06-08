@@ -237,6 +237,8 @@ void logdumphtml(String &str) {
 }
 
 void logpoll(void) {
+  static String serial_cmd_buffer;
+
   if ((log_channels & LOG_CHANNEL_NETWORK) && udp && net_connected()) {
     for (int i=0; i<log_lines_count; i++) {
       LogLine &line = log_line(i);
@@ -244,6 +246,26 @@ void logpoll(void) {
       if (!line.sent) {
         lognet(line);
         line.sent = true;
+      }
+    }
+  }
+
+  // read data from serial port
+  if (log_channels & LOG_CHANNEL_SERIAL) {
+    int len = Serial.available();
+    char c = '\0';
+
+    if (len > 0) {
+      for (int i=0; i<len; i++) {
+        c = Serial.read();
+        serial_cmd_buffer += c;
+        Serial.write(c); // local echo
+        if (c == '\n') break;
+      }
+
+      if (message_cb && (c == '\n')) {
+        message_cb(serial_cmd_buffer.c_str());
+        serial_cmd_buffer = "";
       }
     }
   }
