@@ -426,10 +426,8 @@ static void handle_setup_cb(AsyncWebServerRequest *request) {
       select.options.length = 0;\n \
   ");
 
+  List<NetAccessPoint> &ap = net_list_wifi();
   List<NetAccessPoint>::iterator it;
-  List<NetAccessPoint> ap;
-
-  net_scan_wifi(ap);
 
   for (it=ap.begin(); it!=ap.end(); it++) {
     String enc = (*it).encrypted ? " *" : "";

@@ -324,11 +324,9 @@ void system_ap_info(String &str) {
 
 void system_wifi_info(String &str) {
 #ifndef RELEASE
+  List<NetAccessPoint> &ap = net_list_wifi();
   List<NetAccessPoint>::iterator it;
-  List<NetAccessPoint> ap;
   int n = 1;
-
-  net_scan_wifi(ap);
 
   for (it=ap.begin(); it!=ap.end(); it++) {
     String enc = (*it).encrypted ? "yes" : "no";

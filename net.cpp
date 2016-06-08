@@ -32,6 +32,8 @@ extern "C" {
 #include "log.h"
 #include "net.h"
 
+static List<NetAccessPoint> ap_list;
+
 static void (*event_cb)(uint16_t) = NULL;
 
 static void default_event_handler(WiFiEvent_t event) {
@@ -126,11 +128,14 @@ bool net_init(void) {
   return (true);
 }
 
-void net_scan_wifi(List<NetAccessPoint> &list) {
+int net_scan_wifi(void) {
   int n = WiFi.scanNetworks();
-  int indices[n];
 
-  list.clear();
+  ap_list.clear();
+
+  if (n <= 0) return (n);
+
+  int indices[n];
 
   // prepare a list of indices
   for (int i=0; i<n; i++) {
@@ -169,8 +174,14 @@ void net_scan_wifi(List<NetAccessPoint> &list) {
     ap.rssi = WiFi.RSSI(indices[i]) + 100;
     ap.encrypted = (WiFi.encryptionType(indices[i]) != ENC_TYPE_NONE);
 
-    list.push_back(ap);
+    ap_list.push_back(ap);
   }
+
+  return (ap_list.size());
+}
+
+List<NetAccessPoint> &net_list_wifi(void) {
+  return (ap_list);
 }
 
 String net_hostname(void) {
@@ -241,4 +252,32 @@ String net_ap_ip(void) {
 
 int net_ap_clients(void) {
   return (WiFi.softAPgetStationNum());
+}
+
+void net_poll(void) {
+  static bool already_scanned = false;
+  static uint32_t ms = 0;
+
+  if (!already_scanned && net_connected()) {
+    if ((millis() - ms) > 5000) {
+      log_print(F("WIFI: scanning for accesspoints ...\n"));
+
+      int n = net_scan_wifi();
+
+      if (n < 0) {
+        log_print(F("WIFI: error while scanning for accesspoints, retrying\n"));
+      } else {
+        if (n == 0) {
+          log_print(F("WIFI: no accesspoints found\n"));
+        } else {
+          log_print(F("WIFI: found %i unique SSID%s\n"),
+            ap_list.size(), (ap_list.size() > 1) ? "s" : ""
+          );
+        }
+
+        already_scanned = true;
+        ms = millis();
+      }
+    }
+  }
 }

@@ -177,6 +177,8 @@ static void log_cb(const char *msg) {
     ntp_settime();
   } else if (cmd == "reboot") {
     system_reboot();
+  } else if (cmd == "scan") {
+    net_scan_wifi();
   } else if (cmd == "reset") {
     config_reset();
     system_reboot();
@@ -185,6 +187,7 @@ static void log_cb(const char *msg) {
     str += "\navailable commands are:\n";
     str += "\tntp    ... update time from ntp server\n";
     str += "\tdump   ... dump debug info\n";
+    str += "\tscan   ... scan WiFi for available accesspoints\n";
     str += "\treboot ... reboot device\n";
     str += "\treset  ... perform factory reset\n";
     str += "\thelp   ... print this info\n\n";

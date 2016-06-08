@@ -47,14 +47,14 @@ const __FlashStringHelper *html_page_menu;
 const __FlashStringHelper *html_page_footer;
 
 void html_insert_root_content(String &html) {
-  char *pagebuf = (char *)malloc(1024);
+  char *pagebuf = (char *)malloc(1200);
   char time[16], uptime[24];
 
   if (!pagebuf) {
     log_print(F("HTML: failed to allocate [HOME] page buffer\n")); return;
   }
 
-  snprintf_P(pagebuf, 1024, html_root_fmt,
+  snprintf_P(pagebuf, 1200, html_root_fmt,
     FIRMWARE,
     system_uptime(uptime),
     system_time(time),
@@ -67,7 +67,7 @@ void html_insert_root_content(String &html) {
 
 void html_insert_info_content(String &html) {
 #ifndef RELEASE
-  char *pagebuf = (char *)malloc(3*1024);
+  char *pagebuf = (char *)malloc(2200);
   const char *flash_mode = "UNKNOWN";
 
   if (!pagebuf) {
@@ -81,7 +81,7 @@ void html_insert_info_content(String &html) {
     case FM_DOUT: flash_mode = "DOUT"; break;
   }
 
-  snprintf_P(pagebuf, 3*1024, html_info_fmt,
+  snprintf_P(pagebuf, 2200, html_info_fmt,
     client_id,
     FIRMWARE,
     ESP.getSdkVersion(),
@@ -125,7 +125,7 @@ void html_insert_info_content(String &html) {
 }
 
 void html_insert_conf_content(String &html) {
-  char *pagebuf = (char *)malloc(5*1024);
+  char *pagebuf = (char *)malloc(5000);
 
   if (!pagebuf) {
     log_print(F("HTML: failed to allocate [CONF] page buffer\n")); return;
@@ -138,7 +138,7 @@ void html_insert_conf_content(String &html) {
   IPAddress ip_dns2(config->ip_dns2);
   IPAddress ap_addr(config->ap_addr);
 
-  snprintf_P(pagebuf, 5*1024, html_conf_fmt,
+  snprintf_P(pagebuf, 5000, html_conf_fmt,
     config->user_name,
     config->wifi_ssid,
 
@@ -175,7 +175,7 @@ void html_insert_conf_content(String &html) {
 }
 
 void html_insert_setup_content(String &html) {
-  char *pagebuf = (char *)malloc(3*1024);
+  char *pagebuf = (char *)malloc(2500);
 
   if (!pagebuf) {
     log_print(F("HTML: failed to allocate [SETUP] page buffer\n")); return;
@@ -187,7 +187,7 @@ void html_insert_setup_content(String &html) {
   IPAddress ip_dns1(config->ip_dns1);
   IPAddress ip_dns2(config->ip_dns2);
 
-  snprintf_P(pagebuf, 3*1024, html_setup_fmt,
+  snprintf_P(pagebuf, 2500, html_setup_fmt,
     config->user_name,
     config->ip_static ? "" : "checked",
     config->ip_static ? "checked" : "",
@@ -203,13 +203,13 @@ void html_insert_setup_content(String &html) {
 }
 
 void html_insert_login_content(const String &msg, String &html) {
-  char *pagebuf = (char *)malloc(2*1024);
+  char *pagebuf = (char *)malloc(1200);
 
   if (!pagebuf) {
     log_print(F("HTML: failed to allocate [LOGIN] page buffer\n")); return;
   }
 
-  snprintf_P(pagebuf, 2*1024, html_login_fmt,
+  snprintf_P(pagebuf, 1200, html_login_fmt,
     FIRMWARE,
     client_id,
     msg.c_str()
@@ -221,13 +221,13 @@ void html_insert_login_content(const String &msg, String &html) {
  
 void html_insert_sys_content(String &html) {
 #ifndef RELEASE
-  char *pagebuf = (char *)malloc(4*1024);
+  char *pagebuf = (char *)malloc(3500);
 
   if (!pagebuf) {
     log_print(F("HTML: failed to allocate [SYS] page buffer\n")); return;
   }
 
-  snprintf_P(pagebuf, 4*1024, html_sys_fmt, net_ip().c_str());
+  snprintf_P(pagebuf, 3500, html_sys_fmt, net_ip().c_str());
 
   html += pagebuf;
   free(pagebuf);

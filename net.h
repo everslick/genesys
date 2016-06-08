@@ -33,9 +33,12 @@ typedef struct NetAccessPoint {
 void net_register_event_cb(void (*)(uint16_t));
 
 bool net_init(void);
+void net_poll(void);
+
 bool net_connected(void);
 
-void net_scan_wifi(List<NetAccessPoint> &list);
+int net_scan_wifi(void);
+List<NetAccessPoint> &net_list_wifi(void);
 
 String net_hostname(void);
 String net_gateway(void);
