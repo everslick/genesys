@@ -38,24 +38,37 @@ static void (*event_cb)(uint16_t) = NULL;
 
 static void default_event_handler(WiFiEvent_t event) {
   switch (event) {
-    case WIFI_EVENT_SOFTAPMODE_STACONNECTED:
+    case WIFI_EVENT_SOFTAPMODE_STACONNECTED: // 5
       log_print(F("WIFI: client connected to AP\n"));
     break;
 
-    case WIFI_EVENT_SOFTAPMODE_STADISCONNECTED:
+    case WIFI_EVENT_SOFTAPMODE_STADISCONNECTED: // 6
       log_print(F("WIFI: client disconnected from AP\n"));
     break;
 
-    //case WIFI_EVENT_STAMODE_AUTHMODE_CHANGE:
-    //case WIFI_EVENT_STAMODE_DHCP_TIMEOUT:
-    case WIFI_EVENT_STAMODE_GOT_IP:
-    case WIFI_EVENT_STAMODE_CONNECTED:
-    case WIFI_EVENT_SOFTAPMODE_PROBEREQRECVED:
+    case WIFI_EVENT_STAMODE_DHCP_TIMEOUT: // 4
+      log_print(F("WIFI: DHCP timeout\n"));
+    break;
+
+    case WIFI_EVENT_STAMODE_AUTHMODE_CHANGE: // 2
+      log_print(F("WIFI: auth mode changed\n"));
+    break;
+
+    case WIFI_EVENT_STAMODE_DISCONNECTED: // 1
+      log_print(F("WIFI: STA disconnected from AP\n"));
+    break;
+
+    case WIFI_EVENT_STAMODE_GOT_IP: // 3
+      log_print(F("WIFI: STA connected, local IP: %s\n"), net_ip().c_str());
+    break;
+
+    case WIFI_EVENT_STAMODE_CONNECTED: // 0
+    case WIFI_EVENT_SOFTAPMODE_PROBEREQRECVED: // 7
       // ignore
     break;
 
     default:
-      log_print(F("WIFI: event %i\n"), event);
+      log_print(F("WIFI: unknown event: %i\n"), event);
     break;
   }
 

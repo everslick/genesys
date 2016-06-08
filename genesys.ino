@@ -88,8 +88,6 @@ static void dump_debug_info(void) {
 static void wifi_cb(uint16_t event) {
   switch (event) {
     case WIFI_EVENT_STAMODE_GOT_IP:
-      log_print(F("WIFI: STA connected, local IP: %s\n"), net_ip().c_str());
-
       gpio_led_blink(GPIO_LED0, 150);
 
       mdns_init();
@@ -97,8 +95,6 @@ static void wifi_cb(uint16_t event) {
     break;
 
     case WIFI_EVENT_STAMODE_DISCONNECTED:
-      log_print(F("WIFI: no connection\n"));
-
       gpio_led_blink(GPIO_LED0, 75);
     break;
   }
