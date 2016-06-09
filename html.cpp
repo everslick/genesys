@@ -46,12 +46,6 @@ const __FlashStringHelper *html_page_body;
 const __FlashStringHelper *html_page_menu;
 const __FlashStringHelper *html_page_footer;
 
-enum {
-  BOOT_CAUSE_MANUAL_REBOOT =  0,
-  BOOT_CAUSE_COLD_BOOT     =  1,
-  BOOT_CAUSE_EXT_WD        = 10
-};
-
 void html_insert_root_content(String &html) {
   char *pagebuf = (char *)malloc(1200);
   char time[16], uptime[24];
@@ -75,7 +69,6 @@ void html_insert_info_content(String &html) {
 #ifndef RELEASE
   char *pagebuf = (char *)malloc(2200);
   const char *flash_mode = "UNKNOWN";
-  const char *boot_mode = "UNKNOWN";
 
   if (!pagebuf) {
     log_print(F("HTML: failed to allocate [INFO] page buffer\n")); return;
@@ -86,12 +79,6 @@ void html_insert_info_content(String &html) {
     case FM_QOUT: flash_mode = "QOUT"; break;
     case FM_DIO:  flash_mode = "DIO";  break;
     case FM_DOUT: flash_mode = "DOUT"; break;
-  }
-
-  switch (ESP.getBootMode()) {
-    case BOOT_CAUSE_MANUAL_REBOOT: boot_mode = "Manual reboot";     break;
-    case BOOT_CAUSE_COLD_BOOT:     boot_mode = "Cold boot";         break;
-    case BOOT_CAUSE_EXT_WD:        boot_mode = "External Watchdog"; break;
   }
 
   snprintf_P(pagebuf, 2200, html_info_fmt,
@@ -111,7 +98,7 @@ void html_insert_info_content(String &html) {
     system_free_stack(),
     system_stack_corrupt() ? "CORRUPTED" : "OK",
     ESP.getCpuFreqMHz(),
-    boot_mode,
+    ESP.getResetReason().c_str(),
 
     net_ip().c_str(),
     net_gateway().c_str(),
@@ -461,7 +448,7 @@ bool html_init(void) {
       Free Stack:         %u bytes<br />\n \
       Stack Guard:        %s      <br />\n \
       CPU Clock:          %u MHz  <br />\n \
-      Bootmode:           %s      <br />\n \
+      Reset Reason:       %s      <br />\n \
       <br />\n \
       IP Address:         %s      <br />\n \
       Default GW:         %s      <br />\n \
