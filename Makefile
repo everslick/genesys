@@ -23,18 +23,21 @@ SKETCH = genesys.ino
 
 LIBS = $(ESP_LIBS)/ESP8266WiFi       \
        $(ESP_LIBS)/ESP8266mDNS       \
-       $(ESP_LIBS)/ESPAsyncTCP       \
+       $(ESP_LIBS)/ESP8266httpUpdate \
+       $(ESP_LIBS)/ESP8266HTTPClient \
        $(ESP_LIBS)/ESPAsyncWebServer \
+       $(ESP_LIBS)/ESPAsyncTCP       \
+       $(ESP_LIBS)/ArduinoOTA        \
        $(ESP_LIBS)/DNSServer         \
        $(ESP_LIBS)/EEPROM            \
        $(ESP_LIBS)/Hash              \
-       $(ESP_LIBS)/ArduinoOTA        \
        .
 
 BUILD_SILENTLY        ?= 0
 BUILD_RELEASE         ?= 0
 BUILD_LWIP_SRC        ?= 0
 BUILD_GDB_STUB        ?= 0
+BUILD_WITH_MQTT       ?= 0
 BUILD_SSL_MQTT        ?= 0
 
 DEFAULT_LOG_CHANNELS  ?= 3
@@ -66,6 +69,10 @@ DEFAULT_MQTT_SERVER   ?= 10.0.0.1
 DEFAULT_MQTT_USER     ?= YOUR_MQTT_USER
 DEFAULT_MQTT_PASS     ?= YOUR_MQTT_PASS
 DEFAULT_MQTT_INTERVAL ?= 5
+
+DEFAULT_UPDATE_ENABLED  ?= 0
+DEFAULT_UPDATE_URL      ?= http://10.0.0.1/genesys/update.php
+DEFAULT_UPDATE_INTERVAL ?= 5
 
 UPDATE_URL   ?= $(DEFAULT_MDNS_NAME).local/update
 
@@ -107,7 +114,9 @@ DEFINES += -DDEFAULT_MQTT_SERVER=\"$(DEFAULT_MQTT_SERVER)\"
 DEFINES += -DDEFAULT_MQTT_USER=\"$(DEFAULT_MQTT_USER)\"
 DEFINES += -DDEFAULT_MQTT_PASS=\"$(DEFAULT_MQTT_PASS)\"
 DEFINES += -DDEFAULT_MQTT_INTERVAL=$(DEFAULT_MQTT_INTERVAL)
-
+DEFINES += -DDEFAULT_UPDATE_ENABLED=$(DEFAULT_UPDATE_ENABLED)
+DEFINES += -DDEFAULT_UPDATE_URL=\"$(DEFAULT_UPDATE_URL)\"
+DEFINES += -DDEFAULT_UPDATE_INTERVAL=$(DEFAULT_UPDATE_INTERVAL)
 DEFINES += -DDEFAULT_LOG_CHANNELS=$(DEFAULT_LOG_CHANNELS)
 DEFINES += -DDEFAULT_LOG_SERVER=\"$(DEFAULT_LOG_SERVER)\"
 DEFINES += -DDEFAULT_LOG_PORT=$(DEFAULT_LOG_PORT)
@@ -171,11 +180,14 @@ ifeq ($(BUILD_SILENTLY),1)
 MAKEFLAGS   += --silent
 endif
 
+ifeq ($(BUILD_WITH_MQTT),1)
+C_DEFINES   += -DMQTT_SUPPORT
 ifeq ($(BUILD_SSL_MQTT),1)
 LD_STD_LIBS += -lssl
 LIBS        += $(ESP_LIBS)/esp-mqtt-arduino-ssl
 else
 LIBS        += $(ESP_LIBS)/esp-mqtt-arduino
+endif
 endif
 
 ifeq ($(BUILD_LWIP_SRC),1)
@@ -195,7 +207,7 @@ CPP_FLAGS    += -c $(OPTIMIZE) -nostdlib -mlongcalls -mtext-section-literals -fn
 
 S_FLAGS      += $(OPTIMIZE) -c -x assembler-with-cpp -MMD -mlongcalls
 
-LD_FLAGS     += -w $(OPTIMIZE) -Wl,--no-check-sections -u call_user_start -Wl,-static -L$(SDK_ROOT)/lib -L$(SDK_ROOT)/ld -T$(FLASH_LAYOUT) -Wl,--gc-sections -Wl,-wrap,system_restart_local -Wl,-wrap,register_chipv6_phy -Wl,-wrap,malloc -Wl,-wrap,calloc -Wl,-wrap,realloc -Wl,-wrap,free
+LD_FLAGS     += -w $(OPTIMIZE) -nostdlib -Wl,--no-check-sections -u call_user_start -Wl,-static -L$(SDK_ROOT)/lib -L$(SDK_ROOT)/ld -T$(FLASH_LAYOUT) -Wl,--gc-sections -Wl,-wrap,system_restart_local -Wl,-wrap,register_chipv6_phy -Wl,-wrap,malloc -Wl,-wrap,calloc -Wl,-wrap,realloc -Wl,-wrap,free
 
 # Core source files
 CORE_DIR  = $(ESP_ROOT)/cores/esp8266
