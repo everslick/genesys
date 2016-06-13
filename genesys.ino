@@ -177,6 +177,8 @@ static void log_cb(const char *msg) {
     system_reboot();
   } else if (cmd == "scan") {
     net_scan_wifi();
+    system_wifi_info(str);
+    log_raw(str);
   } else if (cmd == "reset") {
     config_reset();
     system_reboot();
@@ -236,6 +238,7 @@ void loop(void) {
   mqtt_poll();
   dns_poll();
   ntp_poll();
+  net_poll();
 
   system_idle();
 }

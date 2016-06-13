@@ -79,7 +79,7 @@ bool system_init(void) {
 
   log_color_text(COL_YELLOW);
   log_print(LINE_MEDIUM);
-  log_print(F("            *** GENESYS  %s ***\n"), FIRMWARE);
+  log_print(F("             *** GENESYS  %s ***\n"), FIRMWARE);
   log_print(LINE_MEDIUM);
   log_color_text(COL_DEFAULT);
 
