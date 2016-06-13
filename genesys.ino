@@ -220,7 +220,7 @@ void setup(void) {
   gpio_init();
   config_init();
   net_init();
-  dns_init();
+  //dns_init();
   http_init();
   websocket_init();
   update_init();

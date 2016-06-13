@@ -271,7 +271,7 @@ void net_poll(void) {
   static bool already_scanned = false;
   static uint32_t ms = 0;
 
-  if (!already_scanned && net_connected()) {
+  if (!already_scanned) {
     if ((millis() - ms) > 5000) {
       log_print(F("WIFI: scanning for accesspoints ...\n"));
 
