@@ -29,7 +29,7 @@
 #ifndef RELEASE
 
 #define MAX_LOG_LINES 15
-#define MAX_LINE_LEN  70
+#define MAX_LINE_LEN  50
 
 // log target (channel)
 static uint8_t   log_channels = DEFAULT_LOG_CHANNELS;
