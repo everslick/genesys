@@ -1,8 +1,12 @@
-#include <WiFiUdp.h>
 #include <ArduinoOTA.h>
+#include <ESP8266HTTPClient.h>
+#include <ESP8266httpUpdate.h>
+#include <WiFiUdp.h>
 
 #include "websocket.h"
 #include "system.h"
+#include "config.h"
+#include "net.h"
 #include "log.h"
 
 #include "update.h"
@@ -49,6 +53,34 @@ static void handle_update_error_cb(ota_error_t error) {
   log_print(F("OTA:  error[%u]: %s\n"), error, str);
 }
  
+static int check_for_update(void) {
+  HTTPUpdateResult result;
+
+  result = ESPhttpUpdate.update(config->update_url, FIRMWARE);
+
+  switch (result) {
+    case HTTP_UPDATE_FAILED:
+      log_print("UPD:  error (%i): %s\n",
+        ESPhttpUpdate.getLastError(),
+        ESPhttpUpdate.getLastErrorString().c_str()
+      );
+
+      // uncomment if failed updates should be retried next minute
+      // return (-1);
+    break;
+
+    case HTTP_UPDATE_NO_UPDATES:
+      log_print("UPD:  no update available\n");
+    break;
+
+    case HTTP_UPDATE_OK:
+      log_print("UPD:  update successful\n");
+    break;
+  }
+
+  return (0);
+}
+
 bool update_init(void) {
   ArduinoOTA.onStart(handle_update_start_cb);
   ArduinoOTA.onEnd(handle_update_end_cb);
@@ -59,5 +91,19 @@ bool update_init(void) {
 }
 
 void update_poll(void) {
+  uint32_t interval = config->update_interval * 1000 * 60 * 60;
+  static bool poll_pending = true;
+  static uint32_t ms = 0;
+
+  if (config->update_enabled && net_connected()) {
+    if (poll_pending) interval = 60 * 1000;
+
+    if ((millis() - ms) > interval) {
+      poll_pending = (check_for_update() < 0);
+
+      ms = millis();
+    }
+  }
+
   ArduinoOTA.handle();
 }
