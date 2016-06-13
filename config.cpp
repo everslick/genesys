@@ -91,6 +91,11 @@ void config_reset(void) {
   strncpy(config->mqtt_pass   , DEFAULT_MQTT_PASS,   63);
   config->mqtt_interval       = DEFAULT_MQTT_INTERVAL;
 
+  // update
+  config->update_enabled      = DEFAULT_UPDATE_ENABLED;
+  strncpy(config->update_url  , DEFAULT_UPDATE_URL,  63);
+  config->update_interval     = DEFAULT_UPDATE_INTERVAL;
+
   EEPROM.commit();
 }
 

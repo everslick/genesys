@@ -140,6 +140,7 @@ void html_insert_conf_content(String &html) {
 
   snprintf_P(pagebuf, 5000, html_conf_fmt,
     config->user_name,
+
     config->wifi_ssid,
 
     config->ip_static ? "" : "checked",
@@ -167,7 +168,12 @@ void html_insert_conf_content(String &html) {
     config->mqtt_enabled ? "checked" : "",
     config->mqtt_server,
     config->mqtt_user,
-    config->mqtt_interval
+    config->mqtt_interval,
+
+    config->update_enabled ? "" : "checked",
+    config->update_enabled ? "checked" : "",
+    config->update_url,
+    config->update_interval
   );
 
   html += pagebuf;
@@ -335,6 +341,9 @@ bool html_init(void) {
         if (document.getElementsByName('mqtt_enabled')[0].checked) {\n \
           set_elements_inactive(mqtt_elements(), true);\n \
         }\n \
+        if (document.getElementsByName('update_enabled')[0].checked) {\n \
+          set_elements_inactive(update_elements(), true);\n \
+        }\n \
       }\n \
     </script> \n \
     <br />\n \
@@ -401,7 +410,7 @@ bool html_init(void) {
         <p><label>Server:</label>\n \
         <input name='ntp_server' type='text' value='%s'/></p>\n \
         <p><label>Sync Interval:</label>\n \
-        <input name='ntp_interval' type='number' value='%i' min='1' />\n \
+        <input name='ntp_interval' type='number' value='%i' min='1' max='1440' >\n \
         minutes</p>\n \
       </fieldset>\n \
       <br /><br />\n \
@@ -417,8 +426,20 @@ bool html_init(void) {
         <p><label>Password:</label>\n \
         <input name='mqtt_pass' type='password' /></p>\n \
         <p><label>Publish Interval:</label>\n \
-        <input name='mqtt_interval' type='number' value='%i' min='1' />\n \
+        <input name='mqtt_interval' type='number' value='%i' min='1' max='3600' />\n \
         seconds</p>\n \
+      </fieldset>\n \
+      <br /><br />\n \
+     <fieldset>\n \
+        <legend>Update</legend>\n \
+        <input name='update_enabled' type='radio' value='0' %s />Disabled<br />\n \
+        <input name='update_enabled' type='radio' value='1' %s />Enabled<br />\n \
+        <hr />\n \
+        <p><label>URL:</label>\n \
+        <input name='update_url' type='text' value='%s' /></p>\n \
+        <p><label>Poll Interval:</label>\n \
+        <input name='update_interval' type='number' value='%i' min='1' max='240' />\n \
+        hours</p>\n \
       </fieldset>\n \
       <br /><br />\n \
       <center>\n \
@@ -551,8 +572,8 @@ bool html_init(void) {
     <br />\n \
     \n \
     <h3>Log</h3>\n \
-    <div class='syslog'>\n \
-      <pre id=syslog><span style='color:white'> LOADING ...</span></pre>\n \
+    <div class='fixed' id=syslog>\n \
+      <span style='color:white'> LOADING ...</span>\n \
     </div>\n \
     \n \
     <form class='table'>\n \
@@ -684,6 +705,12 @@ bool html_init(void) {
         document.getElementsByName('mqtt_interval')[0]\n \
       );\n \
     }\n \
+    function update_elements() {\n \
+      return new Array(\n \
+        document.getElementsByName('update_url')[0],\n \
+        document.getElementsByName('update_interval')[0]\n \
+      );\n \
+    }\n \
     function set_elements_inactive(elements, disabled) {\n \
       elements.forEach(function(elem) {\n \
         elem.disabled = disabled;\n \
@@ -694,11 +721,12 @@ bool html_init(void) {
       var disabled = (elem.value === '0') ? true : false;\n \
       var elements = [];\n \
       \n \
-      if (elem.name === 'ip_static')    elements = ip_elements();\n \
-      if (elem.name === 'ap_enabled')   elements = ap_elements();\n \
-      if (elem.name === 'mdns_enabled') elements = mdns_elements();\n \
-      if (elem.name === 'ntp_enabled')  elements = ntp_elements();\n \
-      if (elem.name === 'mqtt_enabled') elements = mqtt_elements();\n \
+      if (elem.name === 'ip_static')      elements = ip_elements();\n \
+      if (elem.name === 'ap_enabled')     elements = ap_elements();\n \
+      if (elem.name === 'mdns_enabled')   elements = mdns_elements();\n \
+      if (elem.name === 'ntp_enabled')    elements = ntp_elements();\n \
+      if (elem.name === 'mqtt_enabled')   elements = mqtt_elements();\n \
+      if (elem.name === 'update_enabled') elements = update_elements();\n \
       \n \
       set_elements_inactive(elements, disabled);\n \
     }\n \
@@ -768,7 +796,10 @@ bool html_init(void) {
       font-weight:400; font-size:85%;\n \
     }\n \
     \n \
-    pre { overflow:auto; }\n \
+    pre {\n \
+      overflow:auto;\n \
+      font-family:'Courier New', Courier, Monospace;\n \
+    }\n \
     \n \
     .fixed { font-family:'Courier New', Courier, Monospace; }\n \
     \n \
@@ -798,19 +829,25 @@ bool html_init(void) {
     \n \
     label {\n \
       display:inline-block; width:10em;\n \
-      text-align:right; padding-right:0.5em;\n \
+      text-align:right; padding-right:0.4em;\n \
     }\n \
     \n \
     input[type='text']     { width:10em; }\n \
     input[type='password'] { width:10em; }\n \
     input[type='radio']    { width:2em; margin-left:11em; }\n \
-    input[type='number']   { width:3em; }\n \
-    input[type='submit'] {\n \
+    input[type='number']   { width:4em; }\n \
+    input[type='submit']   {\n \
       width:10em; color:#555555;\n \
       font-size:1em; cursor:pointer;\n \
     }\n \
-    input.r { width:8.5em; text-align:right; }\n \
     select  { width:10em; color:#555555; font-size:0.85em; }\n \
+    input.r { width:8.5em; text-align:right; }\n \
+    input.meter { width:5em; text-align:right; }\n \
+    label.meter {\n \
+      display:inline-block; width:5em;\n \
+      text-align:right; padding-right:0.4em;\n \
+      font-size:1em;\n \
+    }\n \
     \n \
     .login {\n \
       position:absolute; width:26em; left:50%; margin-left:-13em;\n \
@@ -819,11 +856,11 @@ bool html_init(void) {
     \n \
     .load { width:25em; height:5em; }\n \
     \n \
-    .syslog {\n \
-      font-family:'Courier New', Courier, Monospace;\n \
+    #syslog {\n \
       border:1px solid red;\n \
-      min-width:34em; min-height:5em; max-width:34em; max-height:40em;\n \
+      min-width:36em; min-height:5em; max-width:38em; max-height:40em;\n \
       background-color:#201030; padding:0.4em; margin-bottom:0.5em;\n \
+      font-size:0.7em;\n \
     }\n \
   ");
 

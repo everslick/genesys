@@ -60,6 +60,11 @@ struct Config {
   char     mqtt_pass[64];    // mqtt account password
   uint32_t mqtt_interval;    // mqtt publish interval in milliseconds
 
+  // http update
+  uint8_t  update_enabled;   // poll server for updates
+  char     update_url[64];   // URL of firmware file
+  uint32_t update_interval;  // poll interval in hours
+
   uint32_t dummy[32];
 };
 
