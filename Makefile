@@ -25,6 +25,7 @@ LIBS = $(ESP_LIBS)/ESP8266WiFi       \
        $(ESP_LIBS)/ESP8266mDNS       \
        $(ESP_LIBS)/ESPAsyncTCP       \
        $(ESP_LIBS)/ESPAsyncWebServer \
+       $(ESP_LIBS)/DNSServer         \
        $(ESP_LIBS)/EEPROM            \
        $(ESP_LIBS)/Hash              \
        $(ESP_LIBS)/ArduinoOTA        \
@@ -114,7 +115,7 @@ DEFINES += -DDEFAULT_LOG_PORT=$(DEFAULT_LOG_PORT)
 C_DEFINES += $(DEFINES)
 
 LD_STD_LIBS += -lm -lgcc -lhal -lphy -lpp -lnet80211 -lcrypto -lmain -lwpa -lwpa2
-#LD_STD_LIBS += -laxtls -lsmartconfig -lmesh -lwps
+LD_STD_LIBS += -laxtls -lsmartconfig -lmesh -lwps -lstdc++
 
 START_TIME     := $(shell perl -e "print time();")
 # Main output definitions
@@ -183,12 +184,18 @@ LWIP_DEFINES = $(C_DEFINES) -DLWIP_OPEN_SRC -DLWIP_STATS=1
 endif
 
 INCLUDE_DIRS += $(SDK_ROOT)/include $(SDK_ROOT)/lwip/include $(CORE_DIR) $(ESP_ROOT)/variants/generic $(OBJ_DIR)
-C_DEFINES += -DLWIP_STATS=$(BUILD_LWIP_SRC) -D__ets__ -DICACHE_FLASH -U__STRICT_ANSI__ -DF_CPU=80000000L -DARDUINO=10605 -DARDUINO_ESP8266_ESP01 -DARDUINO_ARCH_ESP8266 -DESP8266
-C_INCLUDES += $(foreach dir,$(INCLUDE_DIRS) $(USER_INC),-I$(dir))
-C_FLAGS += -c $(OPTIMIZE) -Wpointer-arith -Wno-implicit-function-declaration -Wl,-EL -fno-inline-functions -nostdlib -mlongcalls -mtext-section-literals -falign-functions=4 -MMD -std=gnu99 -ffunction-sections -fdata-sections
-CPP_FLAGS += -c $(OPTIMIZE) -mlongcalls -mtext-section-literals -fno-exceptions -fno-rtti -falign-functions=4 -std=c++11 -MMD -ffunction-sections -fdata-sections
-S_FLAGS += $(OPTIMIZE) -c -x assembler-with-cpp -MMD
-LD_FLAGS += -w $(OPTIMIZE) -nostdlib -Wl,--no-check-sections -u call_user_start -Wl,-static -L$(SDK_ROOT)/lib -L$(SDK_ROOT)/ld -T$(FLASH_LAYOUT) -Wl,--gc-sections -Wl,-wrap,system_restart_local -Wl,-wrap,register_chipv6_phy -Wl,-wrap,malloc -Wl,-wrap,calloc -Wl,-wrap,realloc -Wl,-wrap,free
+
+C_DEFINES    += -DLWIP_STATS=$(BUILD_LWIP_SRC) -D__ets__ -DICACHE_FLASH -U__STRICT_ANSI__ -DF_CPU=80000000L -DARDUINO=10605 -DARDUINO_ESP8266_ESP01 -DARDUINO_ARCH_ESP8266 -DESP8266
+
+C_INCLUDES   += $(foreach dir,$(INCLUDE_DIRS) $(USER_INC),-I$(dir))
+
+C_FLAGS      += -c $(OPTIMIZE) -Wpointer-arith -Wno-implicit-function-declaration -Wl,-EL -fno-inline-functions -nostdlib -mlongcalls -mtext-section-literals -falign-functions=4 -MMD -std=gnu99 -ffunction-sections -fdata-sections
+
+CPP_FLAGS    += -c $(OPTIMIZE) -nostdlib -mlongcalls -mtext-section-literals -fno-exceptions -fno-rtti -falign-functions=4 -std=c++11 -MMD -ffunction-sections -fdata-sections
+
+S_FLAGS      += $(OPTIMIZE) -c -x assembler-with-cpp -MMD -mlongcalls
+
+LD_FLAGS     += -w $(OPTIMIZE) -Wl,--no-check-sections -u call_user_start -Wl,-static -L$(SDK_ROOT)/lib -L$(SDK_ROOT)/ld -T$(FLASH_LAYOUT) -Wl,--gc-sections -Wl,-wrap,system_restart_local -Wl,-wrap,register_chipv6_phy -Wl,-wrap,malloc -Wl,-wrap,calloc -Wl,-wrap,realloc -Wl,-wrap,free
 
 # Core source files
 CORE_DIR  = $(ESP_ROOT)/cores/esp8266

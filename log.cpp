@@ -101,7 +101,7 @@ static void lognet(const char *str, uint16_t len = 0) {
 
   // FIXME workaround for bug in ESP UDP implementation
   //       https://github.com/esp8266/Arduino/issues/1009
-  system_delay(3);
+  //system_delay(10);
 }
 
 static void logserial(const char *str, uint16_t len = 0) {
@@ -115,6 +115,23 @@ static void logserial(const char *str, uint16_t len = 0) {
   if (len == 0) len = strlen(str);
 
   Serial.write(str, len);
+}
+
+static void logsyslog(const char *str, uint16_t len = 0) {
+  if (udp_ip[0] != 0) {
+    IPAddress broadcast_ip(udp_ip[0], udp_ip[1], udp_ip[2], udp_ip[3]);
+    char buf[80];
+
+    udp->beginPacket(broadcast_ip, 514);
+    snprintf(buf, sizeof (buf), PSTR("<7>ESP %s: %s"), client_id, str);
+
+    if (len == 0) len = strlen(buf);
+
+    udp->write(buf, len);
+
+    udp->endPacket();
+    system_count_net_traffic(len);
+  }
 }
 
 static void lognet(const LogLine &line) {
@@ -286,7 +303,8 @@ void logpoll(void) {
 }
 
 void logclear(void) {
-  //log_lines.clear();
+  log_lines_index = 0;
+  log_lines_count = 0;
 }
 
 void logcolortext(uint8_t col) {
@@ -307,10 +325,7 @@ void logend(void) {
   logcolortext(COL_DEFAULT);
   lograw(log_color_str(col, COL_DEFAULT));
   lograw("\n");
-
-  // give the drivers some time to log the final messages
   logpoll();
-  system_delay(1000);
 
   if (log_channels & LOG_CHANNEL_SERIAL) {
     Serial.end();
