@@ -367,7 +367,7 @@ static bool validate_config(AsyncWebServerRequest *request, String &html) {
     String arg = request->arg(i);
 
     if (!store_config(name, arg)) {
-      html += name + " has an invalid value!<br />\n";
+      html += "<br />" + name + " has an invalid value!\n";
       config_ok = false;
     }
   }
