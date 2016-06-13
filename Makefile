@@ -37,7 +37,6 @@ BUILD_SILENTLY        ?= 0
 BUILD_RELEASE         ?= 0
 BUILD_LWIP_SRC        ?= 0
 BUILD_GDB_STUB        ?= 0
-BUILD_WITH_MQTT       ?= 0
 BUILD_SSL_MQTT        ?= 0
 
 DEFAULT_LOG_CHANNELS  ?= 3
@@ -180,14 +179,11 @@ ifeq ($(BUILD_SILENTLY),1)
 MAKEFLAGS   += --silent
 endif
 
-ifeq ($(BUILD_WITH_MQTT),1)
-C_DEFINES   += -DMQTT_SUPPORT
 ifeq ($(BUILD_SSL_MQTT),1)
 LD_STD_LIBS += -lssl
 LIBS        += $(ESP_LIBS)/esp-mqtt-arduino-ssl
 else
 LIBS        += $(ESP_LIBS)/esp-mqtt-arduino
-endif
 endif
 
 ifeq ($(BUILD_LWIP_SRC),1)
