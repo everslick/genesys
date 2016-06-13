@@ -29,7 +29,7 @@
 #ifndef RELEASE
 
 #define MAX_LOG_LINES 15
-#define MAX_LINE_LEN  80
+#define MAX_LINE_LEN  70
 
 // log target (channel)
 static uint8_t   log_channels = DEFAULT_LOG_CHANNELS;
@@ -101,7 +101,7 @@ static void lognet(const char *str, uint16_t len = 0) {
 
   // FIXME workaround for bug in ESP UDP implementation
   //       https://github.com/esp8266/Arduino/issues/1009
-  //system_delay(10);
+  system_delay(10);
 }
 
 static void logserial(const char *str, uint16_t len = 0) {
@@ -236,10 +236,13 @@ void logdumpraw(String &str) {
 }
 
 void logdumphtml(String &str) {
+  char time[16];
+
+  str += "<pre>";
+
   for (int i=0; i<log_lines_count; i++) {
     LogLine line = log_line(i);
     String txt = line.text;
-    char time[16];
 
     txt.replace("\n", "<br />");
 
@@ -251,6 +254,8 @@ void logdumphtml(String &str) {
     str += txt;
     str += "</span>";
   }
+
+  str += "</pre>";
 }
 
 void logpoll(void) {
