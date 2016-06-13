@@ -195,13 +195,18 @@ void html_insert_setup_content(String &html) {
 
   snprintf_P(pagebuf, 2500, html_setup_fmt,
     config->user_name,
+
     config->ip_static ? "" : "checked",
     config->ip_static ? "checked" : "",
 	 ip_addr.toString().c_str(),
 	 ip_netmask.toString().c_str(),
 	 ip_gateway.toString().c_str(),
 	 ip_dns1.toString().c_str(),
-	 ip_dns2.toString().c_str()
+	 ip_dns2.toString().c_str(),
+
+    config->mdns_enabled ? "" : "checked",
+    config->mdns_enabled ? "checked" : "",
+    config->mdns_name
   );
 
   html += pagebuf;
@@ -647,6 +652,15 @@ bool html_init(void) {
         <input name='ip_dns1' type='text' value='%s'/></p>\n \
         <p><label>DNS2:</label>\n \
         <input name='ip_dns2' type='text' value='%s'/></p>\n \
+      </fieldset>\n \
+      <br /><br />\n \
+      <fieldset>\n \
+        <legend>mDNS</legend>\n \
+        <input name='mdns_enabled' type='radio' value='0' %s />Disabled<br />\n \
+        <input name='mdns_enabled' type='radio' value='1' %s />Enabled<br />\n \
+        <hr />\n \
+        <p><label>Name:</label>\n \
+        <input name='mdns_name' type='text' value='%s' class='r'/>.local</p>\n \
       </fieldset>\n \
       <br /><br />\n \
       <center>\n \
