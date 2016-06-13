@@ -24,6 +24,7 @@
 #include "websocket.h"
 #include "system.h"
 #include "config.h"
+#include "update.h"
 #include "clock.h"
 #include "http.h"
 #include "mdns.h"
@@ -228,6 +229,7 @@ void loop(void) {
   gpio_poll();
   http_poll();
   websocket_poll();
+  update_poll();
   mqtt_poll();
   ntp_poll();
 
