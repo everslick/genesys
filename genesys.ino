@@ -31,6 +31,7 @@
 #include "gpio.h"
 #include "mqtt.h"
 #include "ntp.h"
+#include "dns.h"
 #include "net.h"
 #include "log.h"
 
@@ -217,8 +218,10 @@ void setup(void) {
   gpio_init();
   config_init();
   net_init();
+  dns_init();
   http_init();
   websocket_init();
+  update_init();
 
   gpio_led_on(GPIO_LED1);
 }
@@ -231,6 +234,7 @@ void loop(void) {
   websocket_poll();
   update_poll();
   mqtt_poll();
+  dns_poll();
   ntp_poll();
 
   system_idle();

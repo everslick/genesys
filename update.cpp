@@ -88,6 +88,8 @@ bool update_init(void) {
   ArduinoOTA.onError(handle_update_error_cb);
 
   ArduinoOTA.begin();
+
+  return (true);
 }
 
 void update_poll(void) {

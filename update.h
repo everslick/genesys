@@ -64,6 +64,7 @@ header($_SERVER["SERVER_PROTOCOL"].' 500 no version for ESP MAC', true, 500);
 
 */
 
+bool update_init(void);
 void update_poll(void);
 
 #endif // _UPDATE_H_
