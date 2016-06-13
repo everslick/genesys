@@ -219,6 +219,13 @@ static bool store_config(String name, String value) {
   if (name == "mqtt_interval")
     return (store_int(config->mqtt_interval, value, 1, 3600));
 
+  if (name == "update_enabled")
+    return (store_bool(config->update_enabled, value));
+  if (name == "update_url")
+    return (store_str(config->update_url, value, 64));
+  if (name == "update_interval")
+    return (store_int(config->update_interval, value, 1, 240));
+
   return (false);
 }
 
