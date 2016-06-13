@@ -109,6 +109,10 @@ DEFAULT_MQTT_SERVER   = 10.0.0.150
 DEFAULT_MQTT_USER     = GENESYS
 DEFAULT_MQTT_PASS     = GENESYS
 DEFAULT_MQTT_INTERVAL = 5
+
+DEFAULT_UPDATE_ENABLED  = 0
+DEFAULT_UPDATE_URL      = http://10.0.0.1/genesys/update.php
+DEFAULT_UPDATE_INTERVAL = 5
 ```
 
 Those are the default values that get compiled into the firmware binary so
