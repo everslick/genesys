@@ -159,7 +159,7 @@ static void send_page(AsyncWebServerRequest *request,
   system_count_net_traffic(webpage.length());
 }
 
-static bool store_str(char *conf, String value, int len) {
+static bool store_str(char *conf, const String &value, int len) {
   if (value.length() >= len) return (false);
 
   if (value.length() > 0) {
@@ -170,7 +170,7 @@ static bool store_str(char *conf, String value, int len) {
   return (true);
 }
 
-static bool store_ip(uint32_t &conf, String value) {
+static bool store_ip(uint32_t &conf, const String &value) {
   if (value.length() > 16) return (false);
 
   if (value.length() > 0) {
@@ -183,7 +183,7 @@ static bool store_ip(uint32_t &conf, String value) {
   return (true);
 }
 
-static bool store_int(uint32_t &conf, String value, int min, int max) {
+static bool store_int(uint32_t &conf, const String &value, int min, int max) {
   int val = value.toInt();
 
   if ((val < min) || (val > max)) {
@@ -195,7 +195,7 @@ static bool store_int(uint32_t &conf, String value, int min, int max) {
   return (true);
 }
 
-static bool store_bool(uint8_t &conf, String value) {
+static bool store_bool(uint8_t &conf, const String &value) {
   int val = value.toInt();
 
   if ((val != 0) && (val != 1)) {
@@ -207,7 +207,7 @@ static bool store_bool(uint8_t &conf, String value) {
   return (true);
 }
 
-static bool store_config(String name, String value) {
+static bool store_config(const String &name, const String &value) {
   if (name == "user_name")
     return (store_str(config->user_name, value, 64));
   if (name == "user_pass")
@@ -425,6 +425,7 @@ static void handle_file_page_cb(AsyncWebServerRequest *request) {
   }
 
   webpage += F("</pre>\n");
+
 #ifndef RELEASE
   webpage += F("<hr />\n \
      <form method='POST' action='/upload' enctype='multipart/form-data'>\n \
