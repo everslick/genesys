@@ -21,6 +21,7 @@
 #include <gdbstub.h>
 #endif
 
+#include "filesystem.h"
 #include "websocket.h"
 #include "system.h"
 #include "config.h"
@@ -163,14 +164,34 @@ static void mqtt_cb(uint16_t event) {
 
 static void log_cb(const char *msg) {
 #ifndef RELEASE
-  String str, cmd = msg;
+  String cmd, arg, str = msg;
   char col[8];
 
-  cmd.replace("\n", "");
-  cmd.replace("\r", "");
+  str.replace("\n", "");
+  str.replace("\r", "");
+
+  int idx = str.indexOf(' ');
+  if (idx > 0) {
+    cmd = str.substring(0, idx);
+    arg = str.substring(idx);
+  } else {
+    cmd = str;
+  }
+
+  str = "";
+  cmd.trim();
+  arg.trim();
 
   if (cmd == "dump") {
     dump_debug_info();
+  } else if (cmd == "ls") {
+    fs_ls(str);
+    log_raw(str);
+  } else if (cmd == "cat") {
+    fs_cat(arg, str);
+    log_raw(str);
+  } else if (cmd == "rm") {
+    fs_rm(arg);
   } else if (cmd == "ntp") {
     ntp_settime();
   } else if (cmd == "reboot") {
@@ -185,12 +206,15 @@ static void log_cb(const char *msg) {
   } else if (cmd == "help") {
     str += log_color_str(col, COL_GREEN);
     str += "\navailable commands are:\n";
-    str += "\tntp    ... update time from ntp server\n";
-    str += "\tdump   ... dump debug info\n";
-    str += "\tscan   ... scan WiFi for available accesspoints\n";
-    str += "\treboot ... reboot device\n";
-    str += "\treset  ... perform factory reset\n";
-    str += "\thelp   ... print this info\n\n";
+    str += "\tls      ... list filesystem content\n";
+    str += "\tcat <f> ... print content of file <f>\n";
+    str += "\trm <f>  ... remove file <f> from filesystem\n";
+    str += "\tntp     ... update time from ntp server\n";
+    str += "\tdump    ... dump debug info\n";
+    str += "\tscan    ... scan WiFi for available accesspoints\n";
+    str += "\treboot  ... reboot device\n";
+    str += "\treset   ... perform factory reset\n";
+    str += "\thelp    ... print this info\n\n";
     str += log_color_str(col, COL_DEFAULT);
 
     log_raw(str);
@@ -224,6 +248,7 @@ void setup(void) {
   http_init();
   websocket_init();
   update_init();
+  fs_init();
 
   gpio_led_on(GPIO_LED1);
 }
@@ -236,7 +261,7 @@ void loop(void) {
   websocket_poll();
   update_poll();
   mqtt_poll();
-  dns_poll();
+  //dns_poll();
   ntp_poll();
   net_poll();
 

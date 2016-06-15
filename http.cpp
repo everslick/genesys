@@ -36,6 +36,37 @@ AsyncWebServer *http = NULL;
 
 static char session_key[16];
 
+// current upload
+static File fs_upload_file;
+
+static String format_bytes(size_t bytes) {
+  if (bytes < 1024) {
+    return (String(bytes) + "B");
+  }
+
+  return (String(bytes / 1024.0) + "KB");
+}
+
+static String get_content_type(AsyncWebServerRequest *request,
+                               const String &filename) {
+
+       if (request->hasArg("download")) return ("application/octet-stream");
+  else if (filename.endsWith(".htm"))   return ("text/html");
+  else if (filename.endsWith(".html"))  return ("text/html");
+  else if (filename.endsWith(".css"))   return ("text/css");
+  else if (filename.endsWith(".js"))    return ("application/javascript");
+  else if (filename.endsWith(".png"))   return ("image/png");
+  else if (filename.endsWith(".gif"))   return ("image/gif");
+  else if (filename.endsWith(".jpg"))   return ("image/jpeg");
+  else if (filename.endsWith(".ico"))   return ("image/x-icon");
+  else if (filename.endsWith(".xml"))   return ("text/xml");
+  else if (filename.endsWith(".mp3"))   return ("audio/mpeg");
+  else if (filename.endsWith(".pdf"))   return ("application/x-pdf");
+  else if (filename.endsWith(".zip"))   return ("application/x-zip");
+  else if (filename.endsWith(".gz"))    return ("application/x-gzip");
+                                        return ("text/plain");
+}
+
 static void create_session_key(void) {
   static const char *charset = "abcdefghijklmnopqrstuvwxyz"
                                "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -79,13 +110,24 @@ static bool authenticated(AsyncWebServerRequest *request) {
   return (false);
 }
 
-static void send_header(AsyncWebServerRequest *request,
+static void send_auth(AsyncWebServerRequest *request,
                         const String &session,
                         const String &redirect) {
 
   AsyncWebServerResponse *response = request->beginResponse(301); 
 
   response->addHeader("Set-Cookie", "GENESYS_SESSION_KEY=" + session);
+  response->addHeader("Location", redirect);
+  response->addHeader("Cache-Control", "no-cache");
+
+  request->send(response);
+}
+
+static void send_redirect(AsyncWebServerRequest *request,
+                          const String &redirect) {
+
+  AsyncWebServerResponse *response = request->beginResponse(301); 
+
   response->addHeader("Location", redirect);
   response->addHeader("Cache-Control", "no-cache");
 
@@ -229,6 +271,183 @@ static bool store_config(String name, String value) {
   return (false);
 }
 
+static bool get_file_path(AsyncWebServerRequest *request, String &path) {
+  if (request->hasArg("path")) {
+    path = request->arg("path");
+  } else {
+    request->send(500, "text/plain", "MISSING ARG");
+
+    return (false);
+  }
+
+  return (true);
+}
+
+static void handle_file_download_cb(AsyncWebServerRequest *request) {
+  char buf[64];
+  String path;
+
+  if (!get_file_path(request, path)) return;
+
+  log_print(F("HTTP: downloading file [%s]\n"), path.c_str());
+
+  if (SPIFFS.exists(path)) {
+    AsyncWebServerResponse *response = request->beginResponse(
+      SPIFFS, path, get_content_type(request, path), true
+    ); 
+
+    // set filename and force download
+    snprintf(buf, sizeof (buf), "attachment; filename='%s'", path.c_str());
+    response->addHeader("Content-Disposition", buf);
+
+    request->send(response);
+  } else {
+    request->send(404, "text/plain", "FILE NOT FOUND");
+  }
+}
+
+static void handle_file_view_cb(AsyncWebServerRequest *request) {
+  char buf[64];
+  String path;
+
+  if (!get_file_path(request, path)) return;
+
+  log_print(F("HTTP: viewing file [%s]\n"), path.c_str());
+
+  if (SPIFFS.exists(path)) {
+    AsyncWebServerResponse *response = request->beginResponse(
+      SPIFFS, path, get_content_type(request, path)
+    ); 
+
+    // set filename and force rendering
+    snprintf(buf, sizeof (buf), "inline; filename='%s'", path.c_str());
+    response->addHeader("Content-Disposition", buf);
+
+    request->send(response);
+  } else {
+    request->send(404, "text/plain", "FILE NOT FOUND");
+  }
+}
+
+static void handle_file_delete_cb(AsyncWebServerRequest *request) {
+  String path;
+
+  if (!get_file_path(request, path)) return;
+
+  log_print(F("HTTP: deleting file [%s]\n"), path.c_str());
+
+  if (SPIFFS.exists(path)) {
+    SPIFFS.remove(path);
+    send_redirect(request, "/files");
+  } else {
+    request->send(404, "text/plain", "FILE NOT FOUND");
+  }
+}
+
+static void handle_file_upload_done_cb(AsyncWebServerRequest *request) {
+  send_redirect(request, "/files");
+}
+
+static void handle_file_upload_cb(AsyncWebServerRequest *request,
+                                  String filename,
+                                  size_t index,
+                                  uint8_t *data,
+                                  size_t len,
+                                  bool final) {
+
+  static int received;
+
+  if (!index) {
+    received = 0;
+
+    // TODO check if file exists
+    //      ask for permission to overwrite
+
+    fs_upload_file = SPIFFS.open(filename, "w");
+
+    log_print("HTTP: uploading file [%s]\n", filename.c_str());
+  }
+
+  if (fs_upload_file) {
+    fs_upload_file.write(data, len);
+    received += len;
+  }
+
+  if (final) {
+    if (fs_upload_file) fs_upload_file.close();
+
+    log_print(F("HTTP: uploaded %i bytes\n"), received);
+  }
+
+  system_count_net_traffic(len);
+}
+
+static void handle_file_page_cb(AsyncWebServerRequest *request) {
+  String webpage, path;
+  char buf[128];
+  int len;
+
+  if (!setup_complete(request)) return;
+  if (!authenticated(request)) return;
+
+  if (!webpage.reserve(3*1024)) {
+    log_print(F("HTTP: failed to allocate memory\n"));
+  }
+
+  if (request->hasArg("path")) {
+    path = request->arg("path");
+  }
+
+  Dir dir = SPIFFS.openDir(path);
+
+  html_insert_page_header(webpage);
+  html_insert_page_body(webpage);
+  html_insert_page_menu(webpage);
+
+  webpage += F("<pre><b>   File                Size</b><br/ ><hr />");
+  while (dir.next()) {
+    webpage += "   " + dir.fileName();
+    len = dir.fileName().length();
+    for (int i=0; i<20-len; i++) webpage += " ";
+
+    String size = format_bytes(dir.fileSize());
+    webpage += size;
+    len = size.length();
+    for (int i=0; i<10-len; i++) webpage += " ";
+
+    snprintf(buf, sizeof (buf), "<a href='/view?path=%s'>View</a>  ",
+      dir.fileName().c_str()
+    );
+    webpage += buf;
+
+    snprintf(buf, sizeof (buf), "<a href='/download?path=%s'>Download</a>  ",
+      dir.fileName().c_str()
+    );
+    webpage += buf;
+
+    snprintf(buf, sizeof (buf), "<a href='/delete?path=%s'>Delete</a>",
+      dir.fileName().c_str()
+    );
+    webpage += buf;
+
+    webpage += F("<br />");
+  }
+
+  webpage += F("</pre>\n");
+#ifndef RELEASE
+  webpage += F("<hr />\n \
+     <form method='POST' action='/upload' enctype='multipart/form-data'>\n \
+       <input type='file' name='upload'>\n \
+       <input type='submit' value='Upload'>\n \
+     </form>\n \
+  ");
+#endif
+
+  html_insert_page_footer(webpage);
+
+  send_page(request, webpage);
+}
+
 static void handle_update_finished_cb(AsyncWebServerRequest *request) {
   String response;
 
@@ -252,7 +471,7 @@ static void handle_update_progress_cb(AsyncWebServerRequest *request,
   static int received = 0, last_perc = -1;
   StreamString out;
 
-  if (!index){
+  if (!index) {
     log_print(F("HTTP: starting OTA update ...\n"));
     log_print(F("HTTP: available space: %u bytes\n"), free_space);
     log_print(F("HTTP: filename: %s\n"), filename.c_str());
@@ -482,7 +701,7 @@ static void handle_login_cb(AsyncWebServerRequest *request) {
   }
 
   if (request->hasArg("LOGOUT")) {
-    send_header(request, "0", "/login");
+    send_auth(request, "0", "/login");
 
     return;
   }
@@ -492,7 +711,7 @@ static void handle_login_cb(AsyncWebServerRequest *request) {
 
   if (request->hasArg("USER") && request->hasArg("PASS")){
     if ((request->arg("USER") == user) && (request->arg("PASS") == pass)) {
-      send_header(request, session_key, "/");
+      send_auth(request, session_key, "/");
 
       return;
     }
@@ -586,15 +805,22 @@ bool http_init(void) {
   http->on("/sys",       HTTP_GET,  handle_sys_cb);
   http->on("/reboot",    HTTP_GET,  handle_reboot_cb);
 
-  http->on("/login",     handle_login_cb);
-  http->on("/setup",     handle_setup_cb);
-  http->on("/conf",      handle_conf_cb);
+  http->on("/login",                handle_login_cb);
+  http->on("/setup",                handle_setup_cb);
+  http->on("/conf",                 handle_conf_cb);
 
   http->on("/style.css", HTTP_GET,  handle_style_cb);
   http->on("/script.js", HTTP_GET,  handle_script_cb);
 
   http->on("/update",    HTTP_POST, handle_update_finished_cb,
                                     handle_update_progress_cb);
+  http->on("/files",     HTTP_GET,  handle_file_page_cb);
+  http->on("/view",      HTTP_GET,  handle_file_view_cb);
+  http->on("/download",  HTTP_GET,  handle_file_download_cb);
+  http->on("/delete",    HTTP_GET,  handle_file_delete_cb);
+  http->on("/upload",    HTTP_POST, handle_file_upload_done_cb,
+                                    handle_file_upload_cb);
+
   html_init();
   http->begin();
 

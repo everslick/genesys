@@ -29,7 +29,7 @@
 #define MAGIC_STR "GENESYS"
 #define MAGIC_LEN 8
 
-#define CONFIG_VERSION 1
+#define CONFIG_VERSION 2
 
 struct Config *config = NULL;
 

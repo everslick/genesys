@@ -886,12 +886,14 @@ bool html_init(void) {
 #ifdef RELEASE
   html_page_menu = F(" \
     <a href='/'     >[HOME] </a>&thinsp;\n \
+    <a href='/files'>[FILES]</a>&thinsp;\n \
     <a href='/conf' >[CONF] </a>&thinsp;\n \
     <a href='/login?LOGOUT=YES'>[LOGOUT]</a><br />\n \
   ");
 #else
   html_page_menu = F(" \
     <a href='/'     >[HOME] </a>&thinsp;\n \
+    <a href='/files'>[FILES]</a>&thinsp;\n \
     <a href='/conf' >[CONF] </a>&thinsp;\n \
     <a href='/info' >[INFO] </a>&thinsp;\n \
     <a href='/sys'  >[SYS]  </a>&thinsp;\n \
