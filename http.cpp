@@ -50,8 +50,8 @@ static String format_bytes(size_t bytes) {
 static String get_content_type(AsyncWebServerRequest *request,
                                const String &filename) {
 
-       if (request->hasArg("download")) return ("application/octet-stream");
-  else if (filename.endsWith(".htm"))   return ("text/html");
+       //(request->hasArg("download")) return ("application/octet-stream");
+       if (filename.endsWith(".htm"))   return ("text/html");
   else if (filename.endsWith(".html"))  return ("text/html");
   else if (filename.endsWith(".css"))   return ("text/css");
   else if (filename.endsWith(".js"))    return ("application/javascript");
@@ -284,7 +284,6 @@ static bool get_file_path(AsyncWebServerRequest *request, String &path) {
 }
 
 static void handle_file_download_cb(AsyncWebServerRequest *request) {
-  char buf[64];
   String path;
 
   if (!get_file_path(request, path)) return;
@@ -293,12 +292,8 @@ static void handle_file_download_cb(AsyncWebServerRequest *request) {
 
   if (SPIFFS.exists(path)) {
     AsyncWebServerResponse *response = request->beginResponse(
-      SPIFFS, path, get_content_type(request, path), true
+      SPIFFS, path, get_content_type(request, path), true // true = download
     ); 
-
-    // set filename and force download
-    snprintf(buf, sizeof (buf), "attachment; filename='%s'", path.c_str());
-    response->addHeader("Content-Disposition", buf);
 
     request->send(response);
   } else {
@@ -307,7 +302,6 @@ static void handle_file_download_cb(AsyncWebServerRequest *request) {
 }
 
 static void handle_file_view_cb(AsyncWebServerRequest *request) {
-  char buf[64];
   String path;
 
   if (!get_file_path(request, path)) return;
@@ -318,10 +312,6 @@ static void handle_file_view_cb(AsyncWebServerRequest *request) {
     AsyncWebServerResponse *response = request->beginResponse(
       SPIFFS, path, get_content_type(request, path)
     ); 
-
-    // set filename and force rendering
-    snprintf(buf, sizeof (buf), "inline; filename='%s'", path.c_str());
-    response->addHeader("Content-Disposition", buf);
 
     request->send(response);
   } else {
