@@ -375,6 +375,7 @@ static void handle_file_upload_cb(AsyncWebServerRequest *request,
 static void handle_file_page_cb(AsyncWebServerRequest *request) {
   String webpage, path;
   char buf[128];
+  FSInfo info;
   int len;
 
   if (!setup_complete(request)) return;
@@ -429,9 +430,14 @@ static void handle_file_page_cb(AsyncWebServerRequest *request) {
      <form method='POST' action='/upload' enctype='multipart/form-data'>\n \
        <input type='file' name='upload'>\n \
        <input type='submit' value='Upload'>\n \
-     </form>\n \
+     </form><br />\n \
   ");
 #endif
+
+  SPIFFS.info(info);
+
+  webpage += "total: " + format_bytes(info.totalBytes) + "<br />";
+  webpage += "used:  " + format_bytes(info.usedBytes)  + "<br />";
 
   html_insert_page_footer(webpage);
 
