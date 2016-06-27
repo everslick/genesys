@@ -123,7 +123,7 @@ DEFINES += -DDEFAULT_LOG_PORT=$(DEFAULT_LOG_PORT)
 
 C_DEFINES += $(DEFINES)
 
-LD_STD_LIBS += -lhal -lphy -lpp -lnet80211 -lwpa -lcrypto -lmain -lwps -laxtls -lespnow -lsmartconfig -lmesh -lwpa2 -lstdc++ -lm -lgcc
+LD_STD_LIBS += -lhal -lphy -lpp -lnet80211 -lwpa -lcrypto -lmain -lwps -laxtls -lespnow -lsmartconfig -lmesh -lwpa2 -lstdc++ -lm -lc -lgcc
 
 START_TIME     := $(shell perl -e "print time();")
 # Main output definitions
@@ -200,7 +200,7 @@ CPP_FLAGS    += -c $(OPTIMIZE) $(WARNINGS) -mlongcalls -mtext-section-literals -
 
 S_FLAGS      += -c $(OPTIMIZE) -x assembler-with-cpp -MMD -mlongcalls
 
-LD_FLAGS     += $(OPTIMIZE) $(WARNINGS) -nostdlib -Wl,--no-check-sections -u call_user_start -u _printf_float -u _scanf_float -Wl,-static -L$(SDK_ROOT)/lib -L$(SDK_ROOT)/ld -T$(FLASH_LAYOUT) -Wl,--gc-sections -Wl,-wrap,system_restart_local -Wl,-wrap,register_chipv6_phy -Wl,-wrap,malloc -Wl,-wrap,calloc -Wl,-wrap,realloc -Wl,-wrap,free
+LD_FLAGS     += $(OPTIMIZE) $(WARNINGS) -nostdlib -Wl,--no-check-sections -u call_user_start -u _printf_float -u _scanf_float -Wl,-static -L$(SDK_ROOT)/lib -L$(SDK_ROOT)/libc/xtensa-lx106-elf/lib -L$(SDK_ROOT)/ld -T$(FLASH_LAYOUT) -Wl,--gc-sections -Wl,-wrap,system_restart_local -Wl,-wrap,register_chipv6_phy -Wl,-wrap,malloc -Wl,-wrap,calloc -Wl,-wrap,realloc -Wl,-wrap,free
 
 # Core source files
 CORE_DIR  = $(ESP_ROOT)/cores/esp8266
