@@ -123,7 +123,7 @@ DEFINES += -DDEFAULT_LOG_PORT=$(DEFAULT_LOG_PORT)
 
 C_DEFINES += $(DEFINES)
 
-LD_STD_LIBS += -lhal -lphy -lpp -lnet80211 -lwpa -lcrypto -lmain -lwps -laxtls -lespnow -lsmartconfig -lmesh -lwpa2 -lstdc++ -lm -lc -lgcc
+LD_STD_LIBS += -lhal -lphy -lpp -lnet80211 -lwpa -lcrypto -lmain -lwps -laxtls -lespnow -lsmartconfig -lmesh -lwpa2 -lstdc++ -lm -lgcc
 
 START_TIME     := $(shell perl -e "print time();")
 # Main output definitions
