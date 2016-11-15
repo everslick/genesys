@@ -12,22 +12,20 @@ Main Features
 -------------
 * timezone and daylight saving support
 * XXTEA encryption for all passwords
-* SPIFFS support
 * support for AT24C32 eeprom chip (on RTC module)
 * login on serial port and telnet server
+* cooperative multitasking for modules and tasks
 * built in UNIX like shell with top, ls, mv, ps, kill, ...
 * initial setup via soft accesspoint
-* username/password authentication for webserver
-* debug logs via UDP socket and/or serial port
+* debug logs via UDP socket, serial port and file
 * disable logs when compiling RELEASE version
 * visualization of CPU load, memory usage and network traffic
 * over the air updates (via upload and ArduinoOTA)
-* support for websockets, MQTT, mDNS
-* millisecond precision NTP ind RTC mplementation
+* support for websockets, MQTT, mDNS, SPIFFS, ...
+* millisecond precision NTP and RTC implementation
 * support static IP configuration as well as DHCP
 * support factory reset via hardware button
-* status led
-* eye candy
+* status leds
 
 License
 -------
