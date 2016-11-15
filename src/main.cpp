@@ -38,7 +38,6 @@
 #include "ntp.h"
 #include "net.h"
 #include "log.h"
-#include "spi.h"
 #include "i2c.h"
 #include "led.h"
 
@@ -90,7 +89,6 @@ bool main_init(void) {
 
   cli_init();
   console_init();
-  spi_init();
   i2c_init();
   log_init();
   config_init();
