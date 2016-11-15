@@ -158,7 +158,7 @@ static void telnet_begin(telnet_t *session) {
   // display the MOTD
   session->shell->Print(F("\033[2m"));
   session->shell->LineFeed(2);
-  session->shell->Center(F("ESPADE Telnet Server"));
+  session->shell->Center(F("ESP8266 Telnet Server"));
   session->shell->Print(F("\033[1m"));
   session->shell->LineFeed(2);
 

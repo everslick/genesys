@@ -50,12 +50,8 @@ static const char *conf_ntp_content;
 static const char *conf_rtc_content;
 static const char *conf_transport_content;
 static const char *conf_update_content;
+static const char *conf_storage_content;
 static const char *conf_footer;
-
-static const char *conf_storage_header;
-static const char *conf_storage_values;
-static const char *conf_storage_interval;
-static const char *conf_storage_footer;
 
 static const char *websocket_content;
 static const char *login_content;
@@ -342,22 +338,17 @@ static int insert_conf_update(String &html) {
 }
 
 static int insert_conf_storage(String &html) {
-  char buf[400];
+  char buf[550];
 
-  int len = snprintf_P(buf, sizeof (buf), conf_storage_header,
+  int len = snprintf_P(buf, sizeof (buf), conf_storage_content,
     config->storage_enabled ? "" : "checked",
     config->storage_enabled ? "checked" : "",
-    config->storage_interval,
-    config->storage_mask
+    config->storage_interval
   );
 
   check_buffer_size(len, sizeof (buf), F("storage conf"));
 
   html += buf;
-
-  html += FPSTR(conf_storage_values);
-  html += FPSTR(conf_storage_interval);
-  html += FPSTR(conf_storage_footer);
 
   return (len);
 }
@@ -765,13 +756,6 @@ bool html_init(void) {
       <input name='transport_enabled' type='radio' value='0' %s />Disabled<br />\n\
       <input name='transport_enabled' type='radio' value='1' %s />Enabled<br />\n\
       <hr />\n\
-      <label>Protocol:</label>\n\
-      <select name='transport_protocol' onchange='transport_select_changed()'>\n\
-        <option value='0' %s >NATIV/MQTT</option>\n\
-        <option value='1' %s >EMON/MQTT</option>\n\
-        <option value='2' %s >EMON/JSON</option>\n\
-      </select>\n\
-      <br />\n\
       <label id='transport_url_label'>Broker:</label>\n\
       <input name='transport_url' maxlength='64' type='text' value='%s' />\n\
       <br />\n\
@@ -780,12 +764,6 @@ bool html_init(void) {
       <br />\n\
       <label>Password:</label>\n\
       <input name='transport_pass' maxlength='28' type='password' />\n\
-      <br />\n\
-      <label>Key:</label>\n\
-      <input name='transport_key' maxlength='32' type='text' value='%s' />\n\
-      <br />\n\
-      <label>Node:</label>\n\
-      <input name='transport_node' type='number' value='%i' min='0' max='255'/>\n\
       <br />\n\
       <label>Send Interval:</label>\n\
       <input name='transport_interval' type='number' value='%i' min='1' max='3600' />\n\
@@ -908,8 +886,7 @@ bool html_init(void) {
     <hr />\n\
     \n\
     <button type='button' onclick='if (connection) connection.send(\"reboot\")'>Reboot</button>\n\
-    <br />\n\
-    <br />\n\
+    <br /><br />\n\
   ");
 
   upload_form = PSTR("\n\
@@ -921,55 +898,19 @@ bool html_init(void) {
   ");
 #endif // DEBUG 
 
-  conf_storage_header = PSTR(" \
+  conf_storage_content = PSTR(" \
     <fieldset>\n\
       <legend>Storage</legend>\n\
       <input name='storage_enabled'  type='radio'  value='0' %s />Disabled<br />\n\
       <input name='storage_enabled'  type='radio'  value='1' %s />Enabled<br />\n\
       <input name='storage_interval' type='hidden' value='%i'   />\n\
-      <input name='storage_mask'     type='hidden' value='%i'   />\n\
-  ");
-
-  conf_storage_values = PSTR(" \
       <hr />\n\
-      <table cellspacing='0'>\n\
-      <tr>\n\
-        <th>Phase:</th>\n\
-        <th>Value:</th>\n\
-      </tr>\n\
-      <tr>\n\
-        <td>\n\
-          <input id='storage_mask_0'  type='checkbox' />A<br />\n\
-          <input id='storage_mask_1'  type='checkbox' />B<br />\n\
-          <input id='storage_mask_2'  type='checkbox' />C<br />\n\
-          <input id='storage_mask_3'  type='checkbox' />Comb.\n\
-        </td>\n\
-        <td>\n\
-          <input id='storage_mask_4'  type='checkbox' />VRMS<br />\n\
-          <input id='storage_mask_5'  type='checkbox' />IRMS<br />\n\
-          <input id='storage_mask_6'  type='checkbox' />WATT<br />\n\
-          <input id='storage_mask_7'  type='checkbox' />VAR<br />\n\
-          <input id='storage_mask_8'  type='checkbox' />VA<br />\n\
-        </td>\n\
-        <td>\n\
-          <input id='storage_mask_9'  type='checkbox' />Freq.<br />\n\
-          <input id='storage_mask_10' type='checkbox' />Temp.\n\
-        </td>\n\
-      </tr>\n\
-      </table>\n\
-      <hr />\n\
-  ");
-
-  conf_storage_interval = PSTR(" \
       <label>Save Interval:</label>\n\
       <select class='medium'\n\
               id='storage_interval_sel'\n\
               onchange='storage_select_changed()'>\n\
       </select>\n\
       minute(s)\n\
-  ");
-
-  conf_storage_footer = PSTR(" \
     </fieldset>\n\
     <br /><br />\n\
   ");

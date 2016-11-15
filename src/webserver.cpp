@@ -174,7 +174,7 @@ static bool setup_complete(void) {
 static bool authenticated(void) {
   if (p->webserver->hasHeader(F("Cookie"))) {
     String cookie = p->webserver->header(F("Cookie"));
-    String name = F("ESPADE_SESSION_KEY=");
+    String name = F("GENESYS_SESSION_KEY=");
 
     if (cookie.indexOf(name + p->session) != -1) {
       return (true);
@@ -209,7 +209,7 @@ static void set_request_origin(void) {
 
 static void send_auth(const String &session, const String &redirect) {
   html += F("HTTP/1.1 301 OK\r\n");
-  html += F("Set-Cookie: ESPADE_SESSION_KEY=");
+  html += F("Set-Cookie: GENESYS_SESSION_KEY=");
   html += session;
   html += F("\r\n");
   html += F("Location: ");

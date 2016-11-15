@@ -131,7 +131,7 @@ bool system_init(void) {
   log_color_text(COL_YELLOW);
   log_print(LINE_MEDIUM);
   log_print(
-    F(" *** %s V%s Firmware V%s%s***\r\n"),
+    F("  *** %s V%s Firmware V%s%s***\r\n"),
     system_hw_device().c_str(),  system_hw_version().c_str(),
     system_fw_version().c_str(), system_fw_build().c_str()
   );
@@ -196,7 +196,7 @@ const String system_device_name(void) {
 }
 
 const String system_hw_device(void) {
-  if (get_hw_id() == 0) return (F("ESPADE-P3"));
+  if (get_hw_id() == 0) return (F("GENESYS"));
 
   return (F("UNKNOWN"));
 }

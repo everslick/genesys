@@ -15,8 +15,8 @@
 #
 #==============================================================================
 
--include ../Makefile.config
 -include ../Makefile.defaults
+-include ../Makefile.config
 -include ../Makefile.version
 
 SKETCH = genesys.ino

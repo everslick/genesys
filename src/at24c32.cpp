@@ -38,7 +38,7 @@
 #define EEPROM_DELAY      12
 
 // magic string for detection
-#define EEPROM_MAGIC "ESPADE"
+#define EEPROM_MAGIC "GENESYS"
 
 static uint32_t last_write = 0;
 
