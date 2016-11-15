@@ -10,15 +10,20 @@ make instead of Arduino IDE. Building with Arduino might still work, though.
 
 Main Features
 -------------
+* timezone and daylight saving support
+* XXTEA encryption for all passwords
+* SPIFFS support
+* support for AT24C32 eeprom chip (on RTC module)
+* login on serial port and telnet server
+* built in UNIX like shell with top, ls, mv, ps, kill, ...
 * initial setup via soft accesspoint
 * username/password authentication for webserver
 * debug logs via UDP socket and/or serial port
 * disable logs when compiling RELEASE version
-* allows commands to be sent via debug log back channel
-* rudimentary visualization of CPU load, memory usage and network traffic
+* visualization of CPU load, memory usage and network traffic
 * over the air updates (via upload and ArduinoOTA)
 * support for websockets, MQTT, mDNS
-* millisecond precision NTP implementation
+* millisecond precision NTP ind RTC mplementation
 * support static IP configuration as well as DHCP
 * support factory reset via hardware button
 * status led
@@ -40,79 +45,79 @@ You should have received a copy of the GNU General Public License
 along with Genesys.  If not, see <http://www.gnu.org/licenses/>.
 
 Installation
-------------
-Besides the ESP-Arduino-Core <https://github.com/esp8266/Arduino> Genesys
-needs some 3rd party libraries such as:
+============
 
-* ESPAsyncTCP <https://github.com/me-no-dev/ESPAsyncTCP>
-* ESPAsyncWebServer <https://github.com/me-no-dev/ESPAsyncWebServer>
-* esp-mqtt-arduino <https://github.com/i-n-g-o/esp-mqtt-arduino>
+Besides the ESP-Arduino-Core <https://github.com/esp8266/Arduino> Genesys
+needs an additional 3rd party library that is:
+
+* arduinoWebSockets <https://github.com/Links2004/arduinoWebSockets>
 
 The following script can be used to set up the build environment and dependencies (change as needed):
 
 ```
 mkdir -p ~/Devel/ESP8266
 cd ~/Devel/ESP8266
-git clone git@github.com:esp8266/Arduino.git
-cd Arduino/tools
-python get.py
-cd ../libraries
-git clone git@github.com:me-no-dev/ESPAsyncTCP.git
-git clone git@github.com:me-no-dev/ESPAsyncWebServer.git
-git clone git@github.com:i-n-g-o/esp-mqtt-arduino.git
-cd ~/Devel/ESP8266
-git clone git@github.com:everslick/genesys.git
+git clone git@github.com:everslick/genesys
 cd genesys
+make env-setup
+vi Makefile.config
+make
 ```
 
-Now you can create a file called Makefile.config and populate it with the
+Now you can create a file called Makefile.defaults and populate it with the
 following content:
 
 ```
-UPDATE_URL = $(DEFAULT_IP_ADDR)/update
+I18N_COUNTRY_CODE          = DE
 
-BUILD_SILENTLY        = 1
-BUILD_RELEASE         = 0
-BUILD_GDB_STUB        = 0
-BUILD_LWIP_SRC        = 0
-BUILD_SSL_MQTT        = 0
+DEFAULT_LOG_CHANNELS       = 7
+DEFAULT_LOG_SERVER         = 10.0.0.150
+DEFAULT_LOG_PORT           = 49152
 
-DEFAULT_LOG_CHANNELS  = 3
-DEFAULT_LOG_SERVER    = 10.0.0.150
-DEFAULT_LOG_PORT      = 49152
+DEFAULT_USER_NAME          = genesys
+DEFAULT_USER_PASS          = genesys
 
-DEFAULT_USER_NAME     = genesys
-DEFAULT_USER_PASS     = genesys
+DEFAULT_DEVICE_NAME        = genesys
 
-DEFAULT_WIFI_SSID     = YOUR_WIFI_SSID
-DEFAULT_WIFI_PASS     = YOUR_WIFI_PASS
+DEFAULT_WIFI_ENABLED       = 1
+DEFAULT_WIFI_SSID          = YOUR_WIFI_SSID
+DEFAULT_WIFI_PASS          = YOUR_WIFI_PASS
 
-DEFAULT_IP_STATIC     = 1
-DEFAULT_IP_ADDR       = 10.0.0.222
-DEFAULT_IP_NETMASK    = 255.255.255.0
-DEFAULT_IP_GATEWAY    = 10.0.0.138
-DEFAULT_IP_DNS1       = 10.0.0.138
-DEFAULT_IP_DNS2       = 8.8.8.8
+DEFAULT_IP_STATIC          = 1
+DEFAULT_IP_ADDR            = 10.0.0.222
+DEFAULT_IP_NETMASK         = 255.255.255.0
+DEFAULT_IP_GATEWAY         = 10.0.0.138
+DEFAULT_IP_DNS1            = 10.0.0.138
+DEFAULT_IP_DNS2            = 8.8.8.8
 
-DEFAULT_AP_ENABLED    = 1
-DEFAULT_AP_ADDR       = 10.1.1.1
+DEFAULT_AP_ENABLED         = 1
+DEFAULT_AP_ADDR            = 10.1.1.1
 
-DEFAULT_MDNS_ENABLED  = 0
-DEFAULT_MDNS_NAME     = esp
+DEFAULT_NTP_ENABLED        = 1
+DEFAULT_NTP_SERVER         = pool.ntp.org
+DEFAULT_NTP_INTERVAL       = 180
 
-DEFAULT_NTP_ENABLED   = 1
-DEFAULT_NTP_SERVER    = pool.ntp.org
-DEFAULT_NTP_INTERVAL  = 180
+DEFAULT_TRANSPORT_ENABLED  = 1
+DEFAULT_TRANSPORT_URL      = 10.0.0.150
+DEFAULT_TRANSPORT_USER     = YOUR_MQTT_USER
+DEFAULT_TRANSPORT_PASS     = YOUR_MQTT_PASS
+DEFAULT_TRANSPORT_INTERVAL = 5
 
-DEFAULT_MQTT_ENABLED  = 1
-DEFAULT_MQTT_SERVER   = 10.0.0.150
-DEFAULT_MQTT_USER     = GENESYS
-DEFAULT_MQTT_PASS     = GENESYS
-DEFAULT_MQTT_INTERVAL = 5
+DEFAULT_UPDATE_ENABLED     = 1
+DEFAULT_UPDATE_URL         = http://10.0.0.150/genesys/update.php
+DEFAULT_UPDATE_INTERVAL    = 5
 
-DEFAULT_UPDATE_ENABLED  = 0
-DEFAULT_UPDATE_URL      = http://10.0.0.1/genesys/update.php
-DEFAULT_UPDATE_INTERVAL = 5
+DEFAULT_STORAGE_ENABLED    = 1
+DEFAULT_STORAGE_INTERVAL   = 10
+
+DEFAULT_MDNS_ENABLED       = 1
+DEFAULT_WEBSERVER_ENABLED  = 1
+DEFAULT_WEBSOCKET_ENABLED  = 1
+DEFAULT_TELNET_ENABLED     = 1
+DEFAULT_GPIO_ENABLED       = 1
+DEFAULT_RTC_ENABLED        = 1
+
+DEFAULT_CPU_TURBO          = 1
 ```
 
 Those are the default values that get compiled into the firmware binary so
@@ -182,8 +187,6 @@ TODO
 ----
 * improved documentation
 * move to async MQTT <https://github.com/marvinroger/async-mqtt-client>
-* configurable soft AP SSID
-* disable password fields when wifi is unencrypted
 * TLS support for MQTT
 * WiFi mesh networking
 * support configuration changes via MQTT subscription
