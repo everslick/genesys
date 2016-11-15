@@ -13,7 +13,7 @@ debug release clean ota usb otalog usblog check stack upload esp07:
 new: clean all
 
 tar:
-	cd .. && tar cvzf espade-$(VERSION).tar.gz $(DIR) --exclude-vcs
+	cd .. && tar cvzf genesys-$(VERSION).tar.gz $(DIR) --exclude-vcs
 
 pull:
 	echo "make pull is no longer supported!"
