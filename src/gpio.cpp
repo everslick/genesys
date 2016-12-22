@@ -59,6 +59,7 @@ static GPIO_PrivateData *p = NULL;
 static uint8_t gpio_led_pin(uint8_t led) {
   if (led == 0) return (GPIO_LED1);
   if (led == 1) return (GPIO_LED2);
+  if (led == 2) return (GPIO_LED3);
 
   return (GPIO_LED3);
 }
@@ -81,7 +82,7 @@ bool gpio_init(void) {
 
   if (bootup) {
     if (!config->gpio_enabled) {
-      log_print(F("GPIO: leds and buttons disabled in config\r\n"));
+      log_print(F("GPIO: leds and buttons disabled in config"));
 
       config_fini();
 
@@ -91,7 +92,7 @@ bool gpio_init(void) {
 
   config_fini();
 
-  log_print(F("GPIO: activating leds and buttons\r\n"));
+  log_print(F("GPIO: activating leds and buttons"));
 
   p = (GPIO_PrivateData *)malloc(sizeof (GPIO_PrivateData));
   memset(p, 0, sizeof (GPIO_PrivateData));
@@ -123,7 +124,7 @@ bool gpio_init(void) {
 bool gpio_fini(void) {
   if (!p) return (false);
 
-  log_print(F("GPIO: deactivating leds and buttons\r\n"));
+  log_print(F("GPIO: deactivating leds and buttons"));
 
   for (int led=0; led<GPIO_LEDS; led++) {
     digitalWrite(gpio_led_pin(led), HIGH); // inverted = led off
@@ -264,7 +265,7 @@ void gpio_relais_on(void) {
 
   if (!digitalRead(GPIO_RELAIS)) {
     digitalWrite(GPIO_RELAIS, HIGH);
-    log_print(F("GPIO: relais on pin %i is on\r\n"), GPIO_RELAIS);
+    log_print(F("GPIO: relais on pin %i is on"), GPIO_RELAIS);
   }
 }
 
@@ -273,7 +274,7 @@ void gpio_relais_off(void) {
 
   if (digitalRead(GPIO_RELAIS)) {
     digitalWrite(GPIO_RELAIS, LOW);
-    log_print(F("GPIO: relais on pin %i is off\r\n"), GPIO_RELAIS);
+    log_print(F("GPIO: relais on pin %i is off"), GPIO_RELAIS);
   }
 }
 
@@ -281,7 +282,7 @@ void gpio_relais_toggle(void) {
   if (!p) return;
 
   digitalWrite(GPIO_RELAIS, !digitalRead(GPIO_RELAIS));
-  log_print(F("GPIO: relais on pin %i is %s\r\n"),
+  log_print(F("GPIO: relais on pin %i is %s"),
     GPIO_RELAIS, (digitalRead(GPIO_RELAIS)) ? "on" : "off"
   );
 }

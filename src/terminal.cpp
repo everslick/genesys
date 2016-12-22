@@ -22,6 +22,8 @@
 #include "terminal.h"
 
 Terminal::Terminal(Stream &tty) : tty(tty) {
+  tty.setTimeout(200);
+
   width  = 0;
   height = 0;
 
@@ -78,11 +80,7 @@ int Terminal::Center(const __FlashStringHelper *fmt, ...) {
 }
 
 void Terminal::LineFeed(int n) {
-  String str;
-
-  for (int i=0; i<n; i++) str += F("\r\n");
-
-  Print(str);
+  if (n > 0) for (int i=0; i<n; i++) Print(F("\r\n"));
 }
 
 void Terminal::ScreenClear(void) {
@@ -130,11 +128,13 @@ void Terminal::CursorShow(void) {
   Print(F("\e[?25h"));
 }
 
-void Terminal::Color(int attr, int fg, int bg) {
+void Terminal::Color(int fg, int bg, int attr) {
   Print(F("\e[%i;%i;%im"), attr, fg + 30, bg + 40);
 }
 
 int Terminal::Insert(char c, int n) {
+  if (n <= 0) return (0);
+
   char buf[n + 1];
 
   memset(buf, c, n);
@@ -189,6 +189,9 @@ bool Terminal::GetSize(int &cols, int &rows) {
 
   // restore position
   CursorPosition(col, row);
+
+  width  = cols;
+  height = rows;
 
   return (true);
 }

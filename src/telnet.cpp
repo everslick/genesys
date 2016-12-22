@@ -52,6 +52,8 @@
 
 #define SEND 1
 
+#ifndef RELEASE
+
 // telnet state machine
 enum TelnetState {
   TELNET_STATE_IDLE,
@@ -198,7 +200,7 @@ static int telnet_delete(telnet_t *session) {
   if (session) {
     slot = session->slot;
 
-    log_print(F("TLNT: closing connection to client [%i]\r\n"), slot);
+    log_print(F("TLNT: closing connection to client [%i]"), slot);
 
     if (session->client) {
       telnet_end(session);
@@ -314,7 +316,7 @@ bool telnet_init(void) {
 
   if (bootup) {
     if (!config->telnet_enabled) {
-      log_print(F("TLNT: telnet disabled in config\r\n"));
+      log_print(F("TLNT: telnet disabled in config"));
 
       config_fini();
 
@@ -324,7 +326,7 @@ bool telnet_init(void) {
 
   config_fini();
 
-  log_print(F("TLNT: initializing telnet server\r\n"));
+  log_print(F("TLNT: initializing telnet server"));
 
   p = (TELNET_PrivateData *)malloc(sizeof (TELNET_PrivateData));
   memset(p, 0, sizeof (TELNET_PrivateData));
@@ -333,7 +335,7 @@ bool telnet_init(void) {
   p->server->begin();
 
   if (p->server->status() == CLOSED) {
-    log_print(F("TLNT: could not start telnet server\r\n"));
+    log_print(F("TLNT: could not start telnet server"));
 
     return (false);
   }
@@ -344,16 +346,12 @@ bool telnet_init(void) {
 bool telnet_fini(void) {
   if (!p) return (false);
 
-  log_print(F("TLNT: shutting down telnet server\r\n"));
+  log_print(F("TLNT: shutting down telnet server"));
 
   for (int i=0; i<TELNET_SESSIONS; i++) {
     telnet_delete(p->session[i]);
     p->session[i] = NULL;
-
-    system_yield();
   }
-
-  lined_history_free();
 
   p->server->stop();
   delete (p->server);
@@ -381,7 +379,7 @@ void telnet_poll(void) {
         p->session[i] = NULL;
       }
 
-      system_yield();
+      //system_yield();
     }
   }
 
@@ -401,14 +399,14 @@ void telnet_poll(void) {
     }
 
     if (slot == -1) { // no free slot found
-      log_print(F("TLNT: rejecting new connection from %s:%i\r\n"),
+      log_print(F("TLNT: rejecting new connection from %s:%i"),
         ip.toString().c_str(), port
       );
 
       // reject new client connection
       c.stop();
     } else {
-      log_print(F("TLNT: client [%i] connected from %s:%i\r\n"),
+      log_print(F("TLNT: client [%i] connected from %s:%i"),
         slot, ip.toString().c_str(), port
       );
 
@@ -417,5 +415,23 @@ void telnet_poll(void) {
     }
   }
 }
+
+#else
+
+int telnet_state(void) {
+  return (MODULE_STATE_INACTIVE);
+}
+
+bool telnet_init(void) {
+  return (false);
+}
+
+bool telnet_fini(void) {
+  return (false);
+}
+
+void telnet_poll(void) {}
+
+#endif // RELEASE
 
 MODULE(telnet)

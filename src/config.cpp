@@ -29,10 +29,9 @@
 
 #define CONFIG_EEPROM_SIZE 4096 // SPI_FLASH_SEC_SIZE
 
-#define CONFIG_MAGIC_STR "GENESYS"
-#define CONFIG_MAGIC_LEN 8
+#define CONFIG_MAGIC "GENESYS"
 
-#define CONFIG_VERSION 1
+#define CONFIG_VERSION 2
 
 enum { STR, INT8, INT32, BOOL, IP, PASS };
 
@@ -41,6 +40,9 @@ struct Config *config = NULL;
 static EEPROMClass *eeprom = NULL;
 
 static uint8_t ref = 0;
+
+static bool config_is_uninitialized = false;
+static bool config_has_new_version  = false;
 
 static void *ptr(const String &name, int &type, int &min, int &max) {
   if (!config) config_init();
@@ -108,20 +110,20 @@ static void *ptr(const String &name, int &type, int &min, int &max) {
     type = STR;            max = 32;   return (&config->ntp_server);
   }
 
-  if (name == F("transport_enabled"))  {
-    type = BOOL;                       return (&config->transport_enabled);
+  if (name == F("telemetry_enabled"))  {
+    type = BOOL;                       return (&config->telemetry_enabled);
   }
-  if (name == F("transport_url"))      {
-    type = STR;            max = 64;   return (&config->transport_url);
+  if (name == F("telemetry_url"))      {
+    type = STR;            max = 64;   return (&config->telemetry_url);
   }
-  if (name == F("transport_user"))     {
-    type = STR;            max = 16;   return (&config->transport_user);
+  if (name == F("telemetry_user"))     {
+    type = STR;            max = 16;   return (&config->telemetry_user);
   }
-  if (name == F("transport_pass"))     {
-    type = PASS;  min = 0; max = 32;   return (&config->transport_pass);
+  if (name == F("telemetry_pass"))     {
+    type = PASS;  min = 0; max = 32;   return (&config->telemetry_pass);
   }
-  if (name == F("transport_interval")) {
-    type = INT32; min = 1; max = 3600; return (&config->transport_interval);
+  if (name == F("telemetry_interval")) {
+    type = INT32; min = 1; max = 3600; return (&config->telemetry_interval);
   }
 
   if (name == F("update_enabled"))     {
@@ -142,6 +144,19 @@ static void *ptr(const String &name, int &type, int &min, int &max) {
   }
   if (name == F("storage_mask"))       {
     type = INT32; min = 0; max = 2048; return (&config->storage_mask);
+  }
+
+  if (name == F("logger_enabled"))     {
+    type = BOOL;                       return (&config->logger_enabled);
+  }
+  if (name == F("logger_channels"))    {
+    type = INT8; min = 0; max = 7;     return (&config->logger_channels);
+  }
+  if (name == F("logger_server"))      {
+    type = IP;                         return (&config->logger_server);
+  }
+  if (name == F("logger_port"))        {
+    type = INT32;                      return (&config->logger_port);
   }
 
   if (name == F("cpu_turbo"))          {
@@ -165,6 +180,9 @@ static void *ptr(const String &name, int &type, int &min, int &max) {
   }
   if (name == F("rtc_enabled"))        {
     type = BOOL;                       return (&config->rtc_enabled);
+  }
+  if (name == F("ade_enabled"))        {
+    type = BOOL;                       return (&config->ade_enabled);
   }
 
   return (NULL);
@@ -191,12 +209,11 @@ static void append_line(const String &key, String &str) {
 
   if (config_get(key, val)) {
     str += key + F("=");
-    str += val + F("\r\r\n");
+    str += val + F("\r\n");
   }
 }
 
 static bool write_str(char *conf, const String &value, int max) {
-  if (value.length() == 0)  return (true);
   if (value.length() > max) return (false);
 
   memset(conf, 0, max);
@@ -380,7 +397,7 @@ void config_import(String &str) {
   String line;
 
   for (char c : str) {
-    if (c == '\r') parse_line(line); else if (c != '\r\n') line += c;
+    if (c == '\r') parse_line(line); else if (c != '\n') line += c;
   }
 }
 
@@ -404,28 +421,34 @@ void config_export(String &str) {
   append_line(F("ntp_enabled"),        str);
   append_line(F("ntp_interval"),       str);
   append_line(F("ntp_server"),         str);
-  append_line(F("transport_enabled"),  str);
-  append_line(F("transport_url"),      str);
-  append_line(F("transport_user"),     str);
-  append_line(F("transport_pass"),     str);
-  append_line(F("transport_interval"), str);
+  append_line(F("telemetry_enabled"),  str);
+  append_line(F("telemetry_url"),      str);
+  append_line(F("telemetry_user"),     str);
+  append_line(F("telemetry_pass"),     str);
+  append_line(F("telemetry_interval"), str);
   append_line(F("update_enabled"),     str);
   append_line(F("update_url"),         str);
   append_line(F("update_interval"),    str);
   append_line(F("storage_enabled"),    str);
   append_line(F("storage_interval"),   str);
   append_line(F("storage_mask"),       str);
+  append_line(F("logger_enabled"),     str);
+  append_line(F("logger_channels"),    str);
+  append_line(F("logger_server"),      str);
+  append_line(F("logger_port"),        str);
   append_line(F("mdns_enabled"),       str);
   append_line(F("webserver_enabled"),  str);
   append_line(F("websocket_enabled"),  str);
   append_line(F("telnet_enabled"),     str);
   append_line(F("gpio_enabled"),       str);
   append_line(F("rtc_enabled"),        str);
+  append_line(F("ade_enabled"),        str);
   append_line(F("cpu_turbo"),          str);
 }
 
 void config_reset(void) {
   bool unload_eeprom = false;
+  uint8_t ct_a, ct_b, ct_c;
   IPAddress ip;
 
   if (!config) {
@@ -433,29 +456,27 @@ void config_reset(void) {
     unload_eeprom = true;
   }
 
-  log_print(F("CONF: formatting EEPROM\r\n"));
-
   // clear EEPROM
   for (int i=0; i<CONFIG_EEPROM_SIZE; i++) {
     eeprom->write(i, 0);
   }
 
   // set magic string and config version number
-  write_str(config->magic           , CONFIG_MAGIC_STR, CONFIG_MAGIC_LEN);
+  write_str(config->magic           , F(CONFIG_MAGIC),           8);
   config->version                   = CONFIG_VERSION;
 
   // user
-  write_str(config->user_name       , DEFAULT_USER_NAME,     16);
-  write_pass(config->user_pass      , DEFAULT_USER_PASS,  0, 32);
+  write_str(config->user_name       , F(DEFAULT_USER_NAME),     16);
+  write_pass(config->user_pass      , F(DEFAULT_USER_PASS),  0, 32);
 
   // alias
-  write_str(config->device_name     , DEFAULT_DEVICE_NAME,   16);
+  write_str(config->device_name     , F(DEFAULT_DEVICE_NAME),   16);
 
   // WiFi
   config->wifi_enabled              = DEFAULT_WIFI_ENABLED;
-#ifdef DEBUG
-  write_str(config->wifi_ssid       , DEFAULT_WIFI_SSID,     32);
-  write_pass(config->wifi_pass      , DEFAULT_WIFI_PASS,  8, 32);
+#ifdef ALPHA
+  write_str(config->wifi_ssid       , F(DEFAULT_WIFI_SSID),     32);
+  write_pass(config->wifi_pass      , F(DEFAULT_WIFI_PASS),  8, 32);
 #endif
   config->wifi_power                = 21;
 
@@ -473,25 +494,33 @@ void config_reset(void) {
 
   // NTP
   config->ntp_enabled               = DEFAULT_NTP_ENABLED;
-  write_str(config->ntp_server      , DEFAULT_NTP_SERVER,     32);
+  write_str(config->ntp_server      , F(DEFAULT_NTP_SERVER),     32);
   config->ntp_interval              = DEFAULT_NTP_INTERVAL;
 
-  // TRANSPORT
-  config->transport_enabled         = DEFAULT_TRANSPORT_ENABLED;
-  write_str(config->transport_url   , DEFAULT_TRANSPORT_URL,     64);
-  write_str(config->transport_user  , DEFAULT_TRANSPORT_USER,    16);
-  write_pass(config->transport_pass , DEFAULT_TRANSPORT_PASS, 0, 32);
-  config->transport_interval        = DEFAULT_TRANSPORT_INTERVAL;
+  // TELEMETRY
+  config->telemetry_enabled         = DEFAULT_TELEMETRY_ENABLED;
+  write_str(config->telemetry_url   , F(DEFAULT_TELEMETRY_URL),     64);
+  write_str(config->telemetry_user  , F(DEFAULT_TELEMETRY_USER),    16);
+  write_pass(config->telemetry_pass , F(DEFAULT_TELEMETRY_PASS), 0, 32);
+  config->telemetry_interval        = DEFAULT_TELEMETRY_INTERVAL;
 
   // update
   config->update_enabled            = DEFAULT_UPDATE_ENABLED;
-  write_str(config->update_url      , DEFAULT_UPDATE_URL,     64);
+  write_str(config->update_url      , F(DEFAULT_UPDATE_URL),     64);
   config->update_interval           = DEFAULT_UPDATE_INTERVAL;
 
   // local file storage
   config->storage_enabled           = DEFAULT_STORAGE_ENABLED;
   config->storage_mask              = DEFAULT_STORAGE_MASK;
   config->storage_interval          = DEFAULT_STORAGE_INTERVAL;
+
+  // debug logging
+#ifdef ALPHA
+  config->logger_enabled            = DEFAULT_LOGGER_ENABLED;
+#endif
+  config->logger_channels           = DEFAULT_LOGGER_CHANNELS;
+  write_ip(&config->logger_server   , DEFAULT_LOGGER_SERVER);
+  config->logger_port               = DEFAULT_LOGGER_PORT;
 
   // general switches
   config->mdns_enabled              = DEFAULT_MDNS_ENABLED;
@@ -506,7 +535,7 @@ void config_reset(void) {
 
   // store in flash
   if (!eeprom->commit()) {
-    log_print(F("CONF: EEPROM write error\r\n"));
+    log_print(F("CONF: EEPROM write error"));
   }
 
   if (unload_eeprom) {
@@ -520,29 +549,39 @@ int config_state(void) {
   return (MODULE_STATE_INACTIVE);
 }
 
-bool config_init(void) {
-  int len = sizeof (Config);
+void config_poll(void) {
+  static bool already_polled = false;
 
+  if (!already_polled) {
+    already_polled = true;
+
+    if (sizeof (Config) > CONFIG_EEPROM_SIZE) {
+      log_print(F("CONF: EEPROM too small"));
+    }
+    if (config_is_uninitialized) {
+      log_print(F("CONF: EEPROM has been formatted"));
+    }
+    if (config_has_new_version) {
+      log_print(F("CONF: firmware has new config version"));
+    }
+  }
+}
+
+bool config_init(void) {
   ref++;
 
   if (ref > 1) return (true);
 
-  //log_print(F("CONF: reading (%i bytes) from EEPROM\r\n"), len);
-
-  if (len > CONFIG_EEPROM_SIZE) {
-    log_print(F("CONF: EEPROM too small\r\n"));
-  }
-
   eeprom = new EEPROMClass();
-  eeprom->begin(len);
+  eeprom->begin(sizeof (Config));
   config = (Config *)eeprom->getDataPtr();
 
-  if (strcmp(CONFIG_MAGIC_STR, config->magic)) {
-    log_print(F("CONF: EEPROM not initialized\r\n"));
+  if (String(F(CONFIG_MAGIC)) != config->magic) {
+    config_is_uninitialized = true;
     config_reset();
   } else {
     if (config->version != CONFIG_VERSION) {
-      log_print(F("CONF: firmware has new config version\r\n"));
+      config_has_new_version = true;
       config_reset();
     }
   }
@@ -555,8 +594,6 @@ bool config_fini(void) {
 
   if (ref < 0) return (false);
   if (ref > 0) return (true);
-
-  //log_print(F("CONF: freeing EEPROM cache\r\n"));
 
   eeprom->end();
   delete (eeprom);
@@ -571,10 +608,10 @@ void config_write(void) {
   int len = sizeof (Config);
 
   if (eeprom) {
-    log_print(F("CONF: writing (%i bytes) to EEPROM\r\n"), len);
+    log_print(F("CONF: writing (%i bytes) to EEPROM"), len);
 
     if (len > CONFIG_EEPROM_SIZE) {
-      log_print(F("CONF: EEPROM too small\r\n"));
+      log_print(F("CONF: EEPROM too small"));
     }
 
     eeprom->commit();

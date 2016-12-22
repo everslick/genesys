@@ -32,29 +32,67 @@
 struct CSV_PrivateData {
   // settings from config
   uint32_t storage_interval;
+  uint32_t storage_mask;
 };
 
 static File f;
 
 static CSV_PrivateData *p = NULL;
 
+enum {
+  STORAGE_MASK_ADC  = 1<<0,
+  STORAGE_MASK_TEMP = 1<<1,
+};
+
+static void write_header(void) {
+  uint32_t mask = p->storage_mask;
+  String head;
+
+  if (!head.reserve(128)) {
+    log_print(F("CSV:  failed to allocate header buffer"));
+  }
+
+  // make header line
+  head += F("timestamp;localtime;");
+  if (mask & STORAGE_MASK_ADC)  head += F("adc;");
+  if (mask & STORAGE_MASK_TEMP) head += F("temp;");
+
+  // replace the last ';' with '\r' and append '\n'
+  head[head.length() - 1] = '\r'; head += F("\n");
+
+  if (f) {
+    f.print(head);
+    f.flush();
+  } else {
+    log_print(F("CSV:  cannot write header to file"));
+  }
+}
+
 static void open_file(void) {
   if (rootfs) {
     String file = system_device_name() + String(".csv");
+    bool header = !rootfs->exists(file);
 
     f = rootfs->open(file, "a");
 
-    if (!f) {
-      log_print(F("CSV:  failed to open file '%s'\r\n"), file.c_str());
+    if (f) {
+      if (header) {
+        log_print(F("CSV:  created storage file '%s'"), file.c_str());
+
+        write_header();
+      }
+    } else {
+      log_print(F("CSV:  failed to open file '%s'"), file.c_str());
     }
   }
 }
 
-static void append_adc_value(void) {
+static void append_values(void) {
+  uint32_t mask = p->storage_mask;
   String csv;
 
   if (!csv.reserve(256)) {
-    log_print(F("CSV:  failed to allocate line buffer\r\n"));
+    log_print(F("CSV:  failed to allocate line buffer"));
   }
 
   // make CSV line
@@ -62,8 +100,9 @@ static void append_adc_value(void) {
   dt.ConvertToLocalTime();
   csv += String(clock_time())   + F(";"); // timestamp
   csv += dt.str()               + F(";"); // localtime
-  csv += String(analogRead(17)) + F(";"); // adc
-  csv += String(rtc_temp())     + F(";"); // temp
+
+  if (mask & STORAGE_MASK_ADC)  csv += String(analogRead(17)) + F(";");
+  if (mask & STORAGE_MASK_TEMP) csv += float2str(rtc_temp())  + F(";");
 
   // replace the last ';' with '\r' and append '\n'
   csv[csv.length() - 1] = '\r'; csv += F("\n");
@@ -74,7 +113,7 @@ static void append_adc_value(void) {
     f.print(csv);
     f.flush();
   } else {
-    log_print(F("CSV:  cannot write data to file\r\n"));
+    log_print(F("CSV:  cannot write data to file"));
   }
 }
 
@@ -91,20 +130,21 @@ bool storage_init(void) {
   fs_init();
 
   if (bootup && !config->storage_enabled) {
-    log_print(F("CSV:  local storage disabled in config\r\n"));
+    log_print(F("CSV:  local storage disabled in config"));
 
-    //fs_fini(); XXX log may still need the FS (impl. ref-count)
+    //fs_fini(); XXX log may still need the FS (TODO impl. ref-count)
     config_fini();
 
     return (false);
   }
 
-  log_print(F("CSV:  initializing local storage\r\n"));
+  log_print(F("CSV:  initializing local storage"));
 
   p = (CSV_PrivateData *)malloc(sizeof (CSV_PrivateData));
   memset(p, 0, sizeof (CSV_PrivateData));
 
   p->storage_interval = config->storage_interval;
+  p->storage_mask     = config->storage_mask;
 
   config_fini();
 
@@ -114,7 +154,7 @@ bool storage_init(void) {
 bool storage_fini(void) {
   if (!p) return (false);
 
-  log_print(F("CVS:  disabling local file storage\r\n"));
+  log_print(F("CVS:  disabling local file storage"));
 
   // close file
   f.close();
@@ -131,8 +171,7 @@ void storage_poll(void) {
   static uint32_t ms = millis();
 
   if (p && ((millis() - ms) > 500)) {
-    DateTime dt(clock_time());
-    int minute = dt.Minute();
+    int minute = (clock_time() % 3600) / 60; // 3600 secs per minute
 
     ms = millis();
 
@@ -140,13 +179,13 @@ void storage_poll(void) {
       if (rootfs) {
         // check if the file has been deleted
         if (!f.seek(0, SeekCur)) {
-          log_print(F("CSV:  file was deleted, closing it\r\n"));
+          log_print(F("CSV:  file was deleted, closing it"));
 
           f.close();
         }
       } else {
         // check if FS is still mounted
-        log_print(F("CSV:  filesystem was unmounted, closing file\r\n"));
+        log_print(F("CSV:  filesystem was unmounted, closing file"));
 
         f.close();
       }
@@ -154,7 +193,7 @@ void storage_poll(void) {
 
     if ((minute != last_time_minute) && ((minute % p->storage_interval) == 0)) {
       // write values to file
-      append_adc_value();
+      append_values();
 
       // remember minutes for next round
       last_time_minute = minute;

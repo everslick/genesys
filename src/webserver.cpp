@@ -24,10 +24,11 @@
 #include <FS.h>
 
 #include "filesystem.h"
-#include "transport.h"
+#include "telemetry.h"
 #include "websocket.h"
 #include "storage.h"
 #include "console.h"
+#include "at24c32.h"
 #include "update.h"
 #include "config.h"
 #include "system.h"
@@ -44,19 +45,34 @@
 
 #include "webserver.h"
 
+#define SESSION_TIMEOUT  3600
 #define HTML_BUFFER_SIZE 2800
 
 //#define LOG_PAGE_SIZE
+
+struct Session {
+  Session(bool create = true);
+  ~Session(void);
+
+  void update(void);
+
+  static Session *load(void);
+
+  time_t expires;
+  char   key[16];
+};
 
 struct HTTP_PrivateData {
   ESP8266WebServer *webserver;
 
   uint32_t ap_addr;
 
-  char session[16];
-  char user[16];
-  char pass[32];
+  char user[17];
+  char pass[33];
 
+  Session *session;
+
+  bool ota_enabled;
   int delayed_reboot;
 };
 
@@ -76,6 +92,10 @@ static const char PROGMEM charset[] = "abcdefghijklmnopqrstuvwxyz"
                                       "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
                                       "0123456789";
 
+static void trigger_reboot(int iterations) {
+  if (p) p->delayed_reboot = iterations;
+}
+
 static const String get_content_type(const String &filename) {
        if (filename.endsWith(F(".html"))) return (F("text/html"));
   else if (filename.endsWith(F(".htm")))  return (F("text/html"));
@@ -93,15 +113,53 @@ static const String get_content_type(const String &filename) {
                                           return (F("text/plain"));
 }
 
-static void create_session_key(void) {
-  for (int n=0; n<sizeof (p->session) - 1; n++) {
-    p->session[n] = pgm_read_byte(&charset[RANDOM_REG32 % 62]);
+Session::Session(bool create) {
+  bool active = true;
+
+  at24c32_write(0x10, &active,  sizeof (active));
+
+  if (create) {
+    for (int n=0; n<sizeof (key) - 1; n++) {
+      key[n] = pgm_read_byte(&charset[RANDOM_REG32 % 62]);
+    }
+    key[sizeof (key) - 1] = '\0';
+    at24c32_write(0x18, key, sizeof (key));
+
+    update();
   }
-  p->session[sizeof (p->session) - 1] = '\0';
+}
+
+Session::~Session(void) {
+  bool active = false;
+
+  at24c32_write(0x10, &active,  sizeof (active));
+}
+
+void Session::update(void) {
+  expires = system_utc() + SESSION_TIMEOUT;
+  at24c32_write(0x14, &expires, sizeof (expires));
+}
+
+Session *Session::load(void) {
+  Session *s = NULL;
+  bool active;
+
+  at24c32_read(0x10, &active,  sizeof (active));
+
+  if (active) {
+    s = new Session(false); // false = do not create new session
+
+    at24c32_read(0x14, &s->expires, sizeof (s->expires));
+    at24c32_read(0x18, &s->key[0],  sizeof (s->key));
+  }
+
+  return (s);
 }
 
 static void send_page_P(const char *html, const char *type, int32_t length = -1) {
   led_flash(LED_YEL);
+
+  if (p->session) p->session->update();
 
   if (length < 0) length = strlen_P((PGM_P)html);
 
@@ -109,34 +167,40 @@ static void send_page_P(const char *html, const char *type, int32_t length = -1)
   p->webserver->send_P(200, type, html, length);
 
 #ifdef LOG_PAGE_SIZE
-  log_print(F("HTTP: serving (complete) page (flash) -> %i bytes\r\n"), length);
+  log_print(F("HTTP: serving (complete) page (flash) -> %i bytes"), length);
 #endif
 }
 
 static void send_page(String &html,
-                      int code = 200,
-                      const String &type = "text/html") {
+                      const String &type,
+                      int code = 200) {
 
   led_flash(LED_YEL);
+
+  if (p->session) p->session->update();
 
   p->webserver->send(code, type, html);
 
 #ifdef LOG_PAGE_SIZE
-  log_print(F("HTTP: serving (complete) page (RAM) -> %i bytes\r\n"), html.length());
+  log_print(F("HTTP: serving (complete) page (RAM) -> %i bytes"), html.length());
 #endif
 
-  html = "";
+  // free buffer
+  html = String();
 }
 
 static void send_page_chunk(String &html) {
   led_flash(LED_YEL);
 
+  if (p->session) p->session->update();
+
   p->webserver->sendContent(html);
 
 #ifdef LOG_PAGE_SIZE
-  log_print(F("HTTP: serving chunk -> %i bytes\r\n"), html.length());
+  log_print(F("HTTP: serving chunk -> %i bytes"), html.length());
 #endif
 
+  // reset buffer
   html = "";
 }
 
@@ -155,6 +219,9 @@ static void send_page_footer(void) {
 
   send_page_chunk(html);
   p->webserver->sendContent(""); // end of chunked page
+
+  // free buffer
+  html = String();
 }
 
 static bool setup_complete(void) {
@@ -162,9 +229,9 @@ static bool setup_complete(void) {
     return (true);
   }
 
-  html += F("HTTP/1.1 301 OK\r\n");
-  html += F("Location: /setup?init=1\r\n");
-  html += F("Cache-Control: no-cache\r\n\r\n");
+  html += F("HTTP/1.1 301 OK\n");
+  html += F("Location: /setup?init=1\n");
+  html += F("Cache-Control: no-cache\n\n");
 
   send_page_chunk(html);
 
@@ -176,14 +243,22 @@ static bool authenticated(void) {
     String cookie = p->webserver->header(F("Cookie"));
     String name = F("GENESYS_SESSION_KEY=");
 
-    if (cookie.indexOf(name + p->session) != -1) {
+    if (!p->session) {
+      p->session = new Session();
+    }
+
+    if (cookie.indexOf(name + p->session->key) != -1) {
+      p->ota_enabled = true;
       return (true);
     }
+
+    delete (p->session);
+    p->session = NULL;
   }
 
-  html += F("HTTP/1.1 301 OK\r\n");
-  html += F("Location: /login\r\n");
-  html += F("Cache-Control: no-cache\r\n\r\n");
+  html += F("HTTP/1.1 301 OK\n");
+  html += F("Location: /login\n");
+  html += F("Cache-Control: no-cache\n\n");
 
   send_page_chunk(html);
 
@@ -207,25 +282,25 @@ static void set_request_origin(void) {
   }
 }
 
-static void send_auth(const String &session, const String &redirect) {
-  html += F("HTTP/1.1 301 OK\r\n");
+static void send_auth(const String &key, const String &redirect) {
+  html += F("HTTP/1.1 301 OK\n");
   html += F("Set-Cookie: GENESYS_SESSION_KEY=");
-  html += session;
-  html += F("\r\n");
+  html += key;
+  html += F("\n");
   html += F("Location: ");
   html += redirect;
-  html += F("\r\n");
-  html += F("Cache-Control: no-cache\r\n\r\n");
+  html += F("\n");
+  html += F("Cache-Control: no-cache\n\n");
 
   send_page_chunk(html);
 }
 
 static void send_redirect(const String &redirect) {
-  html += F("HTTP/1.1 301 OK\r\n");
+  html += F("HTTP/1.1 301 OK\n");
   html += F("Location: ");
   html += redirect;
-  html += F("\r\n");
-  html += F("Cache-Control: no-cache\r\n\r\n");
+  html += F("\n");
+  html += F("Cache-Control: no-cache\n\n");
 
   send_page_chunk(html);
 }
@@ -234,8 +309,11 @@ static void handle_file_action_cb(void) {
   char buf[64];
   String path;
 
+  if (!setup_complete()) return;
+  if (!authenticated()) return;
+
   if (!rootfs) {
-    log_print(F("HTTP: filesytem not mounted\r\n"));
+    log_print(F("HTTP: filesytem not mounted"));
 
     return;
   }
@@ -243,7 +321,7 @@ static void handle_file_action_cb(void) {
   if (p->webserver->hasArg(F("path"))) {
     path = p->webserver->arg(F("path"));
   } else {
-    log_print(F("HTTP: no filename specified\r\n"));
+    log_print(F("HTTP: no filename specified"));
     p->webserver->send(500, F("text/plain"), F("MISSING ARG"));
 
     return;
@@ -251,7 +329,7 @@ static void handle_file_action_cb(void) {
 
   if (rootfs->exists(path)) {
     if (p->webserver->uri() == F("/delete")) {
-      log_print(F("HTTP: deleting file '%s'\r\n"), path.c_str());
+      log_print(F("HTTP: deleting file '%s'"), path.c_str());
       rootfs->remove(path);
       send_redirect(F("/files"));
 
@@ -277,7 +355,7 @@ static void handle_file_action_cb(void) {
     p->webserver->streamFile(file, get_content_type(path));
     file.close();
   } else {
-    log_print(F("HTTP: file not found: %s\r\n"), path.c_str());
+    log_print(F("HTTP: file not found: %s"), path.c_str());
     p->webserver->send(404, F("text/plain"), F("FILE NOT FOUND"));
   }
 }
@@ -295,13 +373,13 @@ static void handle_file_upload_cb(void) {
     if (rootfs) {
       fs_upload_file = rootfs->open(filename, "w");
 
-      log_print(F("HTTP: uploading file '%s'\r\n"), filename.c_str());
+      log_print(F("HTTP: uploading file '%s'"), filename.c_str());
 
       if (!fs_upload_file) {
-        log_print(F("HTTP: could not open file for writing\r\n"));
+        log_print(F("HTTP: could not open file for writing"));
       }
     } else {
-      log_print(F("HTTP: filesytem not mounted\r\n"));
+      log_print(F("HTTP: filesytem not mounted"));
     }
   } else if (upload.status == UPLOAD_FILE_WRITE) {
     if (fs_upload_file) {
@@ -311,7 +389,7 @@ static void handle_file_upload_cb(void) {
     if (fs_upload_file) {
       fs_upload_file.close();
 
-      log_print(F("HTTP: uploaded %i bytes\r\n"), upload.totalSize);
+      log_print(F("HTTP: uploaded %i bytes"), upload.totalSize);
     }
   }
 }
@@ -335,11 +413,17 @@ static void handle_file_page_cb(void) {
 }
 
 static void handle_update_start_cb(void) {
+  if (!p->ota_enabled) {
+    p->webserver->send(403, F("text/plain"), F("Login before OTA update ..."));
+
+    return;
+  }
+
   console_kill_shell();
 
-  log_print(F("HTTP: freeing memory for OTA update ...\r\n"));
+  log_print(F("HTTP: freeing memory for OTA update ..."));
 
-  transport_fini();
+  telemetry_fini();
   storage_fini();
   update_fini();
   mdns_fini();
@@ -350,7 +434,7 @@ static void handle_update_start_cb(void) {
   led_off(LED_GRN);
   led_off(LED_YEL);
 
-  log_print(F("HTTP: waiting for OTA update ...\r\n"));
+  log_print(F("HTTP: waiting for OTA update ..."));
 
   websocket_broadcast_message(F("update"));
 
@@ -358,11 +442,17 @@ static void handle_update_start_cb(void) {
 }
 
 static void handle_update_finished_cb(void) {
+  if (!p->ota_enabled) {
+    p->webserver->send(403, F("text/plain"), F("Login before OTA update ..."));
+
+    return;
+  }
+
   html += F("Update ");
   html += (Update.hasError()) ? F("FAILED") : F("OK");
   html += F("!\nRebooting ...\n\n");
 
-  p->delayed_reboot = 2000;
+  trigger_reboot(2000);
 
   p->webserver->send(200, F("text/plain"), html);
 
@@ -375,9 +465,15 @@ static void handle_update_progress_cb(void) {
   static int received = 0, last_perc = -1;
   StreamString out;
 
+  if (!p->ota_enabled) {
+    p->webserver->send(403, F("text/plain"), F("Login before OTA update ..."));
+
+    return;
+  }
+
   if (upload.status == UPLOAD_FILE_START){
-    log_print(F("HTTP: available space: %u bytes\r\n"), free_space);
-    log_print(F("HTTP: filename: %s\r\n"), upload.filename.c_str());
+    log_print(F("HTTP: available space: %u bytes"), free_space);
+    log_print(F("HTTP: filename: %s"), upload.filename.c_str());
 
     if (!Update.begin(free_space)) {
       Update.printError(out);
@@ -405,7 +501,7 @@ static void handle_update_progress_cb(void) {
     }
   } else if (upload.status == UPLOAD_FILE_END) {
     if (Update.end(true)) { // true to set the size to the current progress
-      log_print(F("HTTP: update successful: %u bytes\r\n"), upload.totalSize);
+      log_print(F("HTTP: update successful: %u bytes"), upload.totalSize);
 
       led_on(LED_GRN);
     } else {
@@ -432,13 +528,14 @@ static void handle_info_cb(void) {
 static void handle_wifi_scan_cb(void) {
   net_scan_wifi();
 
-  html += F("[\r\n");
-  html += net_list_wifi();
-  html += F("\r\n]\r\n");
+  html += F("[");
+  html_insert_wifi_list(html);
+  html += F("]\n\n");
 
-  send_page(html, 200, F("text/plain"));
+  send_page(html, F("text/plain"));
 }
 
+#ifdef ALPHA
 static void handle_sys_cb(void) {
   if (!setup_complete()) return;
   if (!authenticated()) return;
@@ -462,6 +559,23 @@ static void handle_sys_cb(void) {
   send_page_chunk(html);
   send_page_footer();
 }
+#endif
+
+#ifndef RELEASE
+static void handle_log_cb(void) {
+  if (!setup_complete()) return;
+  if (!authenticated()) return;
+
+  set_request_origin();
+
+  send_page_header();
+
+  // rest of sys page
+  html_insert_log_content(html);
+  send_page_chunk(html);
+  send_page_footer();
+}
+#endif
 
 static bool config_parse(String &str) {
   bool config_ok = true;
@@ -539,10 +653,7 @@ static void handle_conf_cb(void) {
       html_insert_conf_content(html, CONF_NTP);
       send_page_chunk(html);
 
-      html_insert_conf_content(html, CONF_RTC);
-      send_page_chunk(html);
-
-      html_insert_conf_content(html, CONF_MQTT);
+      html_insert_conf_content(html, CONF_TELEMETRY);
       send_page_chunk(html);
 
       html_insert_conf_content(html, CONF_MDNS);
@@ -556,9 +667,9 @@ static void handle_conf_cb(void) {
     send_page_chunk(html);
   } else {
     if (config_parse(html)) {
-      p->delayed_reboot = 2000;
+      trigger_reboot(2000);
     } else {
-      p->delayed_reboot = 20000;
+      trigger_reboot(20000);
     }
     config_write();
 
@@ -573,35 +684,40 @@ static void handle_conf_cb(void) {
 }
 
 static void handle_login_cb(void) {
-  String header, msg;
-
   if (!setup_complete()) return;
 
   set_request_origin();
 
-  msg = F("Enter username and password!");
-
-  if (p->webserver->hasHeader(F("Cookie"))) {
-    String cookie = p->webserver->header(F("Cookie"));
-  }
-
   if (p->webserver->hasArg(F("LOGOUT"))) {
     send_auth(F("0"), F("/login"));
+
+    delete (p->session);
+    p->session = NULL;
+
+#ifdef RELEASE
+    p->ota_enabled = false;
+#endif
 
     return;
   }
 
+  String msg = F("Enter username and password!");
+
   if (p->webserver->hasArg(F("USER")) && p->webserver->hasArg(F("PASS"))) {
     if (p->webserver->arg(F("USER")) == p->user) {
       if (p->webserver->arg(F("PASS")) == p->pass) {
-        send_auth(p->session, F("/"));
+        if (!p->session) {
+          p->session = new Session();
+        }
+
+        send_auth(p->session->key, F("/"));
 
         return;
       }
     }
 
     msg = F("Login failed, try again!\n");
-    log_print(F("HTTP: login failed\r\n"));
+    log_print(F("HTTP: login failed"));
   }
 
   send_page_header(false); // false = no menu
@@ -622,6 +738,22 @@ static void handle_root_cb(void) {
   send_page_footer();
 }
 
+static void handle_clock_cb(void) {
+  if (!setup_complete()) return;
+  if (!authenticated()) return;
+
+  set_request_origin();
+
+  send_page_header();
+  html_insert_clock_content(html);
+  send_page_chunk(html);
+  send_page_footer();
+}
+
+static void handle_menu_css_cb(void) {
+  send_page_P(html_page_menu_css, text_css_str);
+}
+
 static void handle_reset_css_cb(void) {
   send_page_P(html_page_reset_css, text_css_str);
 }
@@ -636,6 +768,18 @@ static void handle_config_js_cb(void) {
 
 static void handle_common_js_cb(void) {
   send_page_P(html_page_common_js, text_javascript_str);
+}
+
+static void handle_root_js_cb(void) {
+  send_page_P(html_page_root_js,  text_javascript_str);
+}
+
+static void handle_clock_js_cb(void) {
+  send_page_P(html_page_clock_js,  text_javascript_str);
+}
+
+static void handle_logo_js_cb(void) {
+  send_page_P(html_page_logo_js,   text_javascript_str);
 }
 
 static void handle_sys_js_cb(void) {
@@ -659,7 +803,7 @@ static void handle_delicon_cb(void) {
 }
 
 static void handle_404_cb(void) {
-#ifndef DEBUG
+#ifndef ALPHA
   send_redirect(F("/"));
 #else
   html_insert_page_header(html);
@@ -686,7 +830,7 @@ static void handle_404_cb(void) {
   html += F("</p>\n");
 
   html_insert_page_footer(html);
-  send_page(html, 404, F("text/html"));
+  send_page(html, F("text/html"), 404);
 #endif
 }
 
@@ -705,7 +849,7 @@ bool webserver_init(void) {
 
   if (bootup) {
     if (!config->webserver_enabled) {
-      log_print(F("HTTP: webserver disabled in config\r\n"));
+      log_print(F("HTTP: webserver disabled in config"));
 
       config_fini();
 
@@ -713,12 +857,14 @@ bool webserver_init(void) {
     }
   }
 
-  log_print(F("HTTP: initializing webserver\r\n"));
+  log_print(F("HTTP: initializing webserver"));
 
   p = (HTTP_PrivateData *)malloc(sizeof (HTTP_PrivateData));
   memset(p, 0, sizeof (HTTP_PrivateData));
 
-  create_session_key();
+#ifdef ALPHA
+  p->ota_enabled = true;
+#endif
 
   if (config->ap_enabled) p->ap_addr = config->ap_addr;
 
@@ -738,9 +884,14 @@ bool webserver_init(void) {
   p->webserver->on(F("/conf"),                 handle_conf_cb);
 
   p->webserver->on(F("/"),          HTTP_GET,  handle_root_cb);
+  p->webserver->on(F("/clock"),     HTTP_GET,  handle_clock_cb);
   p->webserver->on(F("/info"),      HTTP_GET,  handle_info_cb);
+#ifdef ALPHA
   p->webserver->on(F("/sys"),       HTTP_GET,  handle_sys_cb);
-
+#endif
+#ifndef RELEASE
+  p->webserver->on(F("/log"),       HTTP_GET,  handle_log_cb);
+#endif
   p->webserver->on(F("/scan"),      HTTP_GET,  handle_wifi_scan_cb);
 
   p->webserver->on(F("/fav.png"),   HTTP_GET,  handle_favicon_cb);
@@ -748,10 +899,14 @@ bool webserver_init(void) {
   p->webserver->on(F("/view.png"),  HTTP_GET,  handle_viewicon_cb);
   p->webserver->on(F("/del.png"),   HTTP_GET,  handle_delicon_cb);
 
+  p->webserver->on(F("/menu.css"),  HTTP_GET,  handle_menu_css_cb);
   p->webserver->on(F("/reset.css"), HTTP_GET,  handle_reset_css_cb);
   p->webserver->on(F("/style.css"), HTTP_GET,  handle_style_css_cb);
   p->webserver->on(F("/config.js"), HTTP_GET,  handle_config_js_cb);
   p->webserver->on(F("/common.js"), HTTP_GET,  handle_common_js_cb);
+  p->webserver->on(F("/clock.js"),  HTTP_GET,  handle_clock_js_cb);
+  p->webserver->on(F("/root.js"),   HTTP_GET,  handle_root_js_cb);
+  p->webserver->on(F("/logo.js"),   HTTP_GET,  handle_logo_js_cb);
   p->webserver->on(F("/sys.js"),    HTTP_GET,  handle_sys_js_cb);
 
   p->webserver->on(F("/update"),    HTTP_GET,  handle_update_start_cb);
@@ -766,20 +921,24 @@ bool webserver_init(void) {
                                                handle_file_upload_cb);
 
   // the list of headers to be recorded
-  const char *headerkeys[] = { "User-Agent", "Cookie" };
+  String h1 = F("User-Agent"), h2 = F("Cookie");
+  const char *headerkeys[] = { h1.c_str(), h2.c_str() };
   size_t headerkeyssize = sizeof (headerkeys) / sizeof (char *);
 
   // ask server to track these headers
   p->webserver->collectHeaders(headerkeys, headerkeyssize);
 
   if (!html.reserve(HTML_BUFFER_SIZE)) {
-    log_print(F("HTTP: failed to reserve %s for html buffer\r\n"),
+    log_print(F("HTTP: failed to reserve %s for html buffer"),
       fs_format_bytes(HTML_BUFFER_SIZE).c_str()
     );
   }
 
+  at24c32_init();
   icon_init();
   html_init();
+
+  p->session = Session::load();
 
   p->webserver->begin();
 
@@ -789,11 +948,12 @@ bool webserver_init(void) {
 bool webserver_fini(void) {
   if (!p) return (false);
 
-  log_print(F("HTTP: shutting down webserver\r\n"));
+  log_print(F("HTTP: shutting down webserver"));
 
   html = String();
 
   delete (p->webserver);
+  delete (p->session);
 
   // free private p->data
   free(p);
@@ -814,6 +974,19 @@ void webserver_poll(void) {
     } else {
       p->delayed_reboot--;
     }
+  }
+
+  if (p->session && (system_utc() > p->session->expires)) {
+    log_print(F("HTTP: session timeout, force logout"));
+
+    delete (p->session);
+    p->session = NULL;
+
+#ifdef RELEASE
+    p->ota_enabled = false;
+#endif
+
+    websocket_broadcast_message(F("logout"));
   }
 }
 

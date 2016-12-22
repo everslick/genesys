@@ -1,5 +1,5 @@
 /* lined.c -- line editing for embedded systems.
- +
+ *
  * lined is a fork of the linenoise line editing library originally written
  * by Salvatore Sanfilippo and Pieter Noordhuis. It is stripped down and
  * riddened from all OS specific dependencies to make it usable for small-
@@ -15,6 +15,7 @@
  * fixed some inconsistancies in API usage
  * turned switch ... case into if ... else to save ram
  * added macros to put constant strings into flash memory
+ * allow local echo to be switched on/off (e.g. for password)
  *
  * ------------------------------------------------------------------------
  *
@@ -136,6 +137,12 @@
 
 #define DEFAULT_LINE_LENGTH 80
 
+typedef struct completion_t {
+  int len;
+  int index;
+  char **cvec;
+} completion_t;
+
 /* The lined_t structure represents the state during line editing.
  * We pass this state to functions implementing specific editing
  * functionalities. */
@@ -149,13 +156,13 @@ typedef struct lined_t {
   int cols;               /* Number of columns in terminal. */
   int rows;               /* Number of rows in terminal. */
   int echo;               /* Update current line while editing. */
+  completion_t *lc;       /* Current TAB completion vector. */
   int history_index;      /* The history index we are currently editing. */
   const char *prompt;     /* Prompt to display. */
 } lined_t;
 
 static lined_completion_cb *completion_cb = NULL;
-static lined_hints_cb *hints_cb = NULL;
-static lined_free_hints_cb *free_hints_cb = NULL;
+static lined_hint_cb *hint_cb = NULL;
 
 static int  history_max_len = 10; // default history length
 static int  history_len = 0;
@@ -163,7 +170,26 @@ static char **history = NULL;
 
 static void refresh_line(lined_t *l);
 
-/* ======================= Low level terminal handling ====================== */
+/* ======================== Small helper functions ========================== */
+
+/* We define a very simple "append buffer" structure, that is a string we
+ * can append to. This is useful in order to write all the escape sequences
+ * in a buffer and flush them to the standard output in a single call, to
+ * avoid flickering effects. The buffer is NOT checked for overruns! */
+struct abuf {
+  char *b;
+  int len;
+};
+
+static void ab_init(struct abuf *ab, char *buf) {
+  ab->b = buf;
+  ab->len = 0;
+}
+
+static void ab_append(struct abuf *ab, const char *s, int len) {
+  memcpy(ab->b + ab->len, s, len);
+  ab->len += len;
+}
 
 /* Beep, used for completion when there is nothing to complete or when all
  * the choices were already shown. */
@@ -174,149 +200,98 @@ static void make_beep(lined_t *l) {
 /* ============================== Completion ================================ */
 
 /* Free a list of completion option populated by linedAddCompletion(). */
-static void free_completions(lined_completion_t *lc) {
-  int i;
+static void reset_completion(lined_t *l) {
+  if (l->lc) {
+    for (int i=0; i<l->lc->len; i++) free(l->lc->cvec[i]);
 
-  for (i = 0; i < lc->len; i++) free(lc->cvec[i]);
+    free(l->lc->cvec);
+  }
 
-  if (lc->cvec != NULL) free(lc->cvec);
+  free(l->lc);
+  l->lc = NULL;
+}
+
+/* Show completion or original buffer */
+static void show_completion(lined_t *l) {
+  int i = l->lc->index;
+
+  if (i < l->lc->len) {
+    lined_t saved = *l;
+
+    l->len = l->pos = strlen(l->lc->cvec[i]);
+    l->buf = l->lc->cvec[i];
+    refresh_line(l);
+
+    l->len = saved.len;
+    l->pos = saved.pos;
+    l->buf = saved.buf;
+  } else {
+    refresh_line(l);
+  }
 }
 
 /* This is an helper function for edit() and is called when the
- * user types the <tab> key in order to complete the string currently in the
- * input.
+ * user hits <tab> in order to complete the string currently in the
+ * input buffer.
  *
  * The state of the editing is encapsulated into the pointed lined_t
  * structure as described in the structure definition. */
-static int complete_line(lined_t *l) {
-  lined_completion_t lc = { 0, NULL };
-  int nread, nwritten;
-  char c = 0;
+static void complete_line(lined_t *l, char &c) {
+  if (!l->lc && (c == TERM_KEY_TAB)) {
+    c = TERM_KEY_NONE;
 
-  completion_cb(l->buf, &lc);
-  if (lc.len == 0) {
-    make_beep(l);
-  } else {
-    int stop = 0, i = 0;
+    // fill completion vector
+    completion_cb(l, l->buf);
 
-    while (!stop) {
-      /* Show completion or original buffer */
-      if (i < lc.len) {
-        lined_t saved = *l;
-
-        l->len = l->pos = strlen(lc.cvec[i]);
-        l->buf = lc.cvec[i];
-        refresh_line(l);
-
-        l->len = saved.len;
-        l->pos = saved.pos;
-        l->buf = saved.buf;
-      } else {
-        refresh_line(l);
-      }
-
-      c = l->term->GetKey();
-
-      if (c == TERM_KEY_TAB) {
-        i = (i+1) % (lc.len+1);
-        if (i == lc.len) make_beep(l);
-      } else if (c == TERM_KEY_ESC) {
-        /* Re-show original buffer */
-        if (i < lc.len) refresh_line(l);
-        stop = 1;
-      } else {
-        /* Update buffer and return */
-        if (i < lc.len) {
-          nwritten = snprintf_P(l->buf, l->buflen, PSTR("%s"), lc.cvec[i]);
-          l->len = l->pos = nwritten;
-        }
-        stop = 1;
-      }
+    if (l->lc) {
+      show_completion(l);
+    } else {
+      make_beep(l);
     }
-  }
 
-  free_completions(&lc);
-
-  return (c); /* Return last read character */
-}
-
-/* Register a callback function to be called for tab-completion. */
-void lined_set_completion_cb(lined_completion_cb *fn) {
-  completion_cb = fn;
-}
-
-/* Register a hits function to be called to show hits to the user at the
- * right of the prompt. */
-void lined_set_hints_cb(lined_hints_cb *fn) {
-  hints_cb = fn;
-}
-
-/* Register a function to free the hints returned by the hints callback
- * registered with lined_set_hints_cb(). */
-void lined_set_free_hints_cb(lined_free_hints_cb *fn) {
-  free_hints_cb = fn;
-}
-
-/* This function is used by the callback function registered by the user
- * in order to add completion options given the input string when the
- * user typed <tab>. See the example.c source code for a very easy to
- * understand example. */
-void lined_completion_add(lined_completion_t *lc, const char *str) {
-  int len = strlen(str);
-  char *copy, **cvec;
-
-  copy = (char *)malloc(len + 1);
-
-  if (copy == NULL) return;
-
-  memcpy(copy, str, len + 1);
-  cvec = (char **)realloc(lc->cvec, sizeof (char *) * (lc->len + 1));
-
-  if (cvec == NULL) {
-    free(copy);
     return;
   }
 
-  lc->cvec = cvec;
-  lc->cvec[lc->len++] = copy;
+  if (!l->lc) return;
+ 
+  int i = l->lc->index;
+
+  if (c == TERM_KEY_TAB) {
+    c = TERM_KEY_NONE;
+
+    // increment completion index
+    i = (i+1) % (l->lc->len+1);
+    if (i == l->lc->len) make_beep(l);
+
+    l->lc->index = i;
+
+    show_completion(l);
+  } else if (c == TERM_KEY_ESC) {
+    c = TERM_KEY_NONE;
+
+    /* Re-show original buffer */
+    if (i < l->lc->len) refresh_line(l);
+
+    reset_completion(l);
+  } else {
+    /* Update buffer and return */
+    if (i < l->lc->len) {
+      int n = snprintf_P(l->buf, l->buflen, PSTR("%s"), l->lc->cvec[i]);
+      l->len = l->pos = n;
+    }
+
+    reset_completion(l);
+  }
 }
 
 /* =========================== Line editing ================================= */
 
-/* We define a very simple "append buffer" structure, that is an heap
- * allocated string where we can append to. This is useful in order to
- * write all the escape sequences in a buffer and flush them to the standard
- * output in a single call, to avoid flickering effects. */
-struct abuf {
-  char *b;
-  int len;
-};
-
-static void ab_init(struct abuf *ab) {
-  ab->b = NULL;
-  ab->len = 0;
-}
-
-static void ab_append(struct abuf *ab, const char *s, int len) {
-  char *n = (char *)realloc(ab->b, ab->len + len);
-
-  if (n == NULL) return;
-
-  memcpy(n + ab->len, s, len);
-  ab->b = n;
-  ab->len += len;
-}
-
-static void ab_free(struct abuf *ab) {
-  free(ab->b);
-}
-
 /* Helper of refresh_line() to show hints
  * to the right of the prompt. */
-void refresh_show_hints(struct abuf *ab, lined_t *l) {
-  if (hints_cb && (l->plen + l->len < l->cols)) {
+static void show_hint(struct abuf *ab, lined_t *l) {
+  if (hint_cb && (l->plen + l->len < l->cols)) {
     int color = -1, bold = 0;
-    char *hint = hints_cb(l->buf, &color, &bold);
+    char *hint = hint_cb(l->buf, &color, &bold);
 
     if (hint) {
       int hintlen = strlen(hint);
@@ -337,20 +312,16 @@ void refresh_show_hints(struct abuf *ab, lined_t *l) {
         ln = snprintf_P(seq, 64, PSTR("\033[0m"));
         ab_append(ab, seq, ln);
       }
-
-      /* Call the function to free the hint returned. */
-      if (free_hints_cb) free_hints_cb(hint);
     }
   }
 }
 
-/* Single line low level line refresh.
- *
- * Rewrite the currently edited line accordingly to the buffer content,
+/* Rewrite the currently edited line accordingly to the buffer content,
  * cursor position, and number of columns of the terminal. */
 static void refresh_line(lined_t *l) {
   int ln, len = l->len;
   char *buf = l->buf;
+  char scratch[128];
   int pos = l->pos;
   struct abuf ab;
   char seq[64];
@@ -366,7 +337,7 @@ static void refresh_line(lined_t *l) {
     len--;
   }
 
-  ab_init(&ab);
+  ab_init(&ab, scratch);
 
   /* Cursor to left edge */
   ab_append(&ab, "\r", 1);
@@ -375,8 +346,8 @@ static void refresh_line(lined_t *l) {
   ab_append(&ab, l->prompt, l->plen);
   ab_append(&ab, buf, len);
 
-  /* Show hints if any. */
-  refresh_show_hints(&ab, l);
+  /* Show hint if any. */
+  show_hint(&ab, l);
 
   /* Erase to right */
   ln = snprintf_P(seq, 64, PSTR("\x1b[0K"));
@@ -389,15 +360,11 @@ static void refresh_line(lined_t *l) {
   if (l->term->tty.write(ab.b, ab.len) == -1) {
     /* Can't recover from write error. */
   }
-
-  ab_free(&ab);
 }
 
-/* Insert the character 'c' at cursor current position.
- *
- * On error writing to the terminal -1 is returned, otherwise 0. */
-int edit_insert(lined_t *l, char c) {
-  if (l->len < l->buflen) {
+/* Insert the character 'c' at cursor current position. */
+static void edit_insert(lined_t *l, char c) {
+  if ((c != TERM_KEY_ESC) && (l->len < l->buflen)) {
     if (l->len != l->pos) {
       memmove(l->buf + l->pos + 1, l->buf + l->pos, l->len - l->pos);
     }
@@ -409,12 +376,10 @@ int edit_insert(lined_t *l, char c) {
 
     refresh_line(l);
   }
-
-  return (0);
 }
 
 /* Move cursor to the left. */
-void edit_move_left(lined_t *l) {
+static void edit_move_left(lined_t *l) {
   if (l->pos > 0) {
     l->pos--;
   }
@@ -423,7 +388,7 @@ void edit_move_left(lined_t *l) {
 }
 
 /* Move cursor to the right. */
-void edit_move_right(lined_t *l) {
+static void edit_move_right(lined_t *l) {
   if (l->pos != l->len) {
     l->pos++;
   }
@@ -432,7 +397,7 @@ void edit_move_right(lined_t *l) {
 }
 
 /* Move cursor to the start of the line. */
-void edit_move_home(lined_t *l) {
+static void edit_move_home(lined_t *l) {
   if (l->pos != 0) {
     l->pos = 0;
   }
@@ -441,7 +406,7 @@ void edit_move_home(lined_t *l) {
 }
 
 /* Move cursor to the end of the line. */
-void edit_move_end(lined_t *l) {
+static void edit_move_end(lined_t *l) {
   if (l->pos != l->len) {
     l->pos = l->len;
   }
@@ -451,7 +416,7 @@ void edit_move_end(lined_t *l) {
 
 /* Substitute the currently edited line with the next or previous history
  * entry as specified by 'dir'. */
-void edit_history_next(lined_t *l, int dir) {
+static void edit_history_next(lined_t *l, int dir) {
   if (history_len > 1) {
     /* Update the current history entry before to
      * overwrite it with the next one. */
@@ -477,9 +442,9 @@ void edit_history_next(lined_t *l, int dir) {
   }
 }
 
-/* Delete the character at the right of the cursor without altering the cursor
- * position. Basically this is what happens with the "Delete" keyboard key. */
-void edit_delete(lined_t *l) {
+/* Delete the character at the right of the cursor without altering the
+ * cursor position. Basically this is what the DEL keyboard key does. */
+static void edit_delete(lined_t *l) {
   if (l->len > 0 && l->pos < l->len) {
     memmove(l->buf + l->pos, l->buf + l->pos + 1, l->len - l->pos - 1);
 
@@ -491,7 +456,7 @@ void edit_delete(lined_t *l) {
 }
 
 /* Backspace implementation. */
-void edit_backspace(lined_t *l) {
+static void edit_backspace(lined_t *l) {
   if (l->pos > 0 && l->len > 0) {
     memmove(l->buf + l->pos-1, l->buf + l->pos, l->len - l->pos);
 
@@ -503,9 +468,9 @@ void edit_backspace(lined_t *l) {
   refresh_line(l);
 }
 
-/* Delete the previosu word, maintaining the cursor at the start of the
+/* Delete the previous word, maintaining the cursor at the start of the
  * current word. */
-void edit_delete_prev_word(lined_t *l) {
+static void edit_delete_prev_word(lined_t *l) {
   int old_pos = l->pos;
   int diff;
 
@@ -520,26 +485,23 @@ void edit_delete_prev_word(lined_t *l) {
 }
 
 /* This function is the core of the line editing capability of lined.
- * It expects the read 'rd' function to return every key pressed ASAP.
+ * It expects the GetKey() function to return every key pressed ASAP
+ * or return TERM_KEY_NONE. GetKey() shall never block.
  *
- * The resulting string (in buf) is returned when the user type enter,
- * or when ctrl+d is typed.
+ * The string (in buf) is constantly updated even when using TAB
+ * completion.
  *
- * The function returns a pointer to the current line buffer. */
+ * The function returns the code of the last pressed key. */
 static int edit_line(lined_t *l) {
   char c, seq[3];
   int nread;
 
   c = l->term->GetKey();
 
-  /* Only autocomplete when the callback is set. It returns < 0 when
-   * there was an error reading from fd. Otherwise it will return the
-   * character that should be handled next. */
-  if ((c == TERM_KEY_TAB) && (completion_cb != NULL)) {
-    c = complete_line(l);
-    /* Return on errors */
-    if (c == TERM_KEY_NONE) return (TERM_KEY_NONE);
-  }
+  if (c == TERM_KEY_NONE) return (TERM_KEY_NONE);
+
+  /* Only autocomplete when the callback is set. */
+  if (completion_cb) complete_line(l, c);
 
   if (c == TERM_KEY_ENTER) {
     if (history_len > 0) {
@@ -547,13 +509,13 @@ static int edit_line(lined_t *l) {
       free(history[history_len]);
     }
 
-    if (hints_cb) {
+    if (hint_cb) {
       /* Force a refresh without hints to leave the previous
        * line as the user typed it after a newline. */
-      lined_hints_cb *hc = hints_cb;
-      hints_cb = NULL;
+      lined_hint_cb *hc = hint_cb;
+      hint_cb = NULL;
       refresh_line(l);
-      hints_cb = hc;
+      hint_cb = hc;
     }
 
     return (TERM_KEY_ENTER);
@@ -631,14 +593,13 @@ static int edit_line(lined_t *l) {
   } else if ((c == '\0') || (c == '\r')) {
     /* ignore '\0' and '\r' */
   } else {
-    if (edit_insert(l, c)) return (TERM_KEY_NONE);
+    edit_insert(l, c);
   }
 
   return (TERM_KEY_NONE);
 }
 
-/* The high level function that creates a new lined context.
- */
+/* The high level function that creates a new lined context. */
 lined_t *lined_begin(Terminal *term) {
   lined_t *l = (lined_t *)malloc(sizeof (lined_t));
 
@@ -647,7 +608,7 @@ lined_t *lined_begin(Terminal *term) {
      * specific editing functionalities. */
     l->term    = term;
     l->buf     = (char *)malloc(DEFAULT_LINE_LENGTH);
-    l->buflen  = DEFAULT_LINE_LENGTH - 1; /* there is always space for '\0' */
+    l->buflen  = DEFAULT_LINE_LENGTH - 1; /* reserve space for '\0' */
     l->prompt  = NULL;
     l->plen    = 0;
     l->cols    = 0;
@@ -656,6 +617,7 @@ lined_t *lined_begin(Terminal *term) {
     l->len     = 0;
     l->echo    = 1;
     l->buf[0]  = '\0';
+    l->lc      = NULL;
     l->history_index = 0;
   }
 
@@ -668,6 +630,8 @@ void lined_reset(lined_t *l) {
      * initially is just an empty string. */
     lined_history_add("");
     l->history_index = 0;
+
+    reset_completion(l);
 
     l->pos    = 0;
     l->len    = 0;
@@ -719,30 +683,75 @@ int lined_poll(lined_t *l) {
 
 void lined_end(lined_t *l) {
   if (l) {
+    reset_completion(l);
+
     free(l->buf);
     free(l);
   }
 }
 
-/* ================================ _history_ ================================= */
+/* Register a callback function to be called for tab-completion. */
+void lined_set_completion_cb(lined_completion_cb *fn) {
+  completion_cb = fn;
+}
 
-/* Free the history, but does not reset it. Only used when we have to
- * exit() to avoid memory leaks are reported by valgrind & co. */
+/* Register a function to be called to show hints to the user at the
+ * right of the prompt. */
+void lined_set_hint_cb(lined_hint_cb *fn) {
+  hint_cb = fn;
+}
+
+/* This function is used by the callback function registered by the user
+ * in order to add completion options given the input string when the
+ * user hit <tab>. */
+void lined_completion_add(lined_t *l, const char *str) {
+  int len = strlen(str);
+  char *copy, **cvec;
+
+  if (!l->lc) {
+    l->lc = (completion_t *)malloc(sizeof (completion_t));
+
+    l->lc->len   = 0;
+    l->lc->index = 0;
+    l->lc->cvec  = NULL;
+  }
+
+  copy = (char *)malloc(len + 1);
+
+  if (copy == NULL) return;
+
+  memcpy(copy, str, len + 1);
+  cvec = (char **)realloc(l->lc->cvec, sizeof (char *) * (l->lc->len + 1));
+
+  if (cvec == NULL) {
+    free(copy);
+    return;
+  }
+
+  l->lc->cvec = cvec;
+  l->lc->cvec[l->lc->len++] = copy;
+}
+
+/* ================================ History ================================= */
+
+/* Free the global history vector. */
 void lined_history_free(void) {
   if (history) {
-    for (int j=0; j<history_len; j++) free(history[j]);
+    for (int j=0; j<history_len; j++) {
+      free(history[j]);
+      history[j] = NULL;
+    }
 
     free(history);
+    history = NULL;
   }
 }
 
 /* This is the API call to add a new entry in the lined history.
  * It uses a fixed array of char pointers that are shifted (memmoved)
  * when the history max length is reached in order to remove the older
- * entry and make room for the new one, so it is not exactly suitable for huge
- * histories, but will work well for a few hundred of entries.
- *
- * Using a circular buffer is smarter, but a bit more complex to handle. */
+ * entry and make room for the new one, so it is not exactly suitable
+ * for huge histories, but will work well for a few hundred of entries. */
 int lined_history_add(const char *line) {
   char *linecopy;
 
@@ -755,8 +764,8 @@ int lined_history_add(const char *line) {
     memset(history, 0, (sizeof (char *) * history_max_len));
   }
 
-  /* Don't add duplicated lines. */
-  if (history_len && !strcmp(history[history_len-1], line)) return 0;
+  /* Don't add duplicates. */
+  if (history_len && !strcmp(history[history_len-1], line)) return (0);
 
   /* Add an heap allocated copy of the line in the history.
    * If we reached the max length, remove the older line. */
@@ -796,7 +805,7 @@ int lined_history_set(int len) {
       tocopy = len;
     }
 
-    memset(n, 0, sizeof(char*)*len);
+    memset(n, 0, sizeof (char *) * len);
     memcpy(n, history + (history_len - tocopy), sizeof (char *) * tocopy);
     free(history);
     history = n;
@@ -809,47 +818,3 @@ int lined_history_set(int len) {
 
   return (1);
 }
-
-#if 0
-/* Save the history in the specified file. On success 0 is returned
- * otherwise -1 is returned. */
-int lined_history_Save(const char *filename) {
-  File f;
-  int j;
-
-  //rootfs->open(filename, "w");
-  if (!f) return -1;
-
-  for (j = 0; j < history_len; j++) {
-    f.print("%s\n", history[j]);
-  }
-  f.close();
-
-  return 0;
-}
-
-/* Load the history from the specified file. If the file does not exist
- * zero is returned and no operation is performed.
- *
- * If the file exists and the operation succeeded 0 is returned, otherwise
- * on error -1 is returned. */
-int lined_history_Load(const char *filename) {
-  File f;
-  char buf[DEFAULT_LINE_LENGTH];
-
-  //rootfs->open(filename, "r");
-  if (!f) return -1;
-
-  while (f.read(buf,DEFAULT_LINE_LENGTH) != NULL) {
-    char *p;
-
-    p = strchr(buf,'\r');
-    if (!p) p = strchr(buf,'\n');
-    if (p) *p = '\0';
-    lined_history_Add(buf);
-  }
-  f.close();
-
-  return 0;
-}
-#endif

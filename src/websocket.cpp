@@ -21,6 +21,7 @@
 
 #include <limits.h>
 
+#include "logger.h"
 #include "system.h"
 #include "module.h"
 #include "config.h"
@@ -42,13 +43,10 @@ enum {
   CLIENT_REQUEST_NONE,
   CLIENT_REQUEST_INIT,
   CLIENT_REQUEST_FINI,
-  CLIENT_REQUEST_RESET,
   CLIENT_REQUEST_REBOOT,
-  CLIENT_REQUEST_ZERO,
   CLIENT_REQUEST_STATE,
   CLIENT_REQUEST_RELAIS,
   CLIENT_REQUEST_TEMP,
-  CLIENT_REQUEST_WAVE,
   CLIENT_REQUEST_TIME,
   CLIENT_REQUEST_LOAD,
   CLIENT_REQUEST_LOG,
@@ -76,7 +74,7 @@ static void packet_prepare(uint32_t reserve, const char *purpose = NULL) {
   p->packet_reserved = reserve;
 
   if (!data.reserve(reserve)) {
-    log_print(F("WS:   could not allocate %s buffer\r\n"), p->packet_purpose);
+    log_print(F("WS:   could not allocate %s buffer"), p->packet_purpose);
   }
 
   data = F("              "); // 14 bytes reserved for header
@@ -84,13 +82,13 @@ static void packet_prepare(uint32_t reserve, const char *purpose = NULL) {
 
 static void packet_check(void) {
   if (data.length() >= p->packet_reserved) {
-    log_print(F("WS:   %s buffer too small (size=%i, need=%i)\r\n"),
+    log_print(F("WS:   %s buffer too small (size=%i, need=%i)"),
       p->packet_purpose, p->packet_reserved, data.length()
     );
   }
 
 #ifdef LOG_BUFFER_USAGE
-  log_print(F("WS:   %s buffer = %i bytes\r\n"), p->packet_purpose, data.length());
+  log_print(F("WS:   %s buffer = %i bytes"), p->packet_purpose, data.length());
 #endif
 
   p->packet_purpose[0] = '\0';
@@ -117,30 +115,27 @@ static void packet_broadcast(void) {
 
 static void send_time_data(int client) {
   char time[16], uptime[24];
-  DateTime rtc;
+  struct timespec tm;
 
   packet_prepare(150, PSTR("TIME"));
 
-  system_uptime(uptime);
-  system_time(time);
-  bool valid = (rtc_gettime(rtc) == 0);
+  clock_gettime(CLOCK_REALTIME, &tm);
 
   data += F("{\"type\":\"time\",");
 
+  // localtime in milli seconds
+  data += F("\"localtime\":");
+  data += system_localtime() * 1000.0 + tm.tv_nsec / 1000000;
+  data += F(",");
+
+  // uptime as string
   data += F("\"uptime\":\"");
-  data += uptime;
+  data += system_uptime(uptime);
   data += F("\",");
 
-  data += F("\"date\":\"");
-  data += (valid) ? rtc.date_str() : F("--");
-  data += F("\",");
-
-  data += F("\"time\":\"");
-  data += (valid) ? rtc.time_str() : F("--");
-  data += F("\",");
-
+  // UTC as string
   data += F("\"utc\":\"");
-  data += time;
+  data += system_time(time);
   data += F("\"}");
 
   packet_send(client);
@@ -171,7 +166,7 @@ static void send_relais_data(int client) {
 }
 
 static void send_load_data(int client) {
-#ifdef DEBUG
+#ifdef ALPHA
   String cpu_data, mem_data, net_data;
 
   packet_prepare(450, PSTR("LOAD"));
@@ -233,27 +228,27 @@ static void send_module_data(int client) {
 }
 
 static void send_temp_data(int client) {
+  float temp = rtc_temp();
+
   packet_prepare(100, PSTR("TEMP"));
 
   data += F("{\"type\":\"temp\",");
 
-  data += F("\"rtc\":\"");
-  data += float2str(rtc_temp());
+  data += F("\"value\":\"");
+  data += float2str(temp);
   data += F("\"}");
 
   packet_send(client);
 }
 
 static void send_log_data(int client) {
-#ifdef DEBUG
   packet_prepare(4000, PSTR("LOG"));
 
   data += F("{\"type\":\"log\",\"text\":\"");
-  log_dump_html(data, -1);
+  logger_dump_html(data, -1);
   data += F("\"}");
 
   packet_send(client);
-#endif
 }
 
 static void ws_event(uint8_t client, WStype_t type, uint8_t *data, size_t len) {
@@ -264,22 +259,19 @@ static void ws_event(uint8_t client, WStype_t type, uint8_t *data, size_t len) {
 
   if (type == WStype_CONNECTED) {
 #ifdef LOG_CLIENT_CONNECTS
-    log_print(F("WS:   client %i connected from %d.%d.%d.%d url: %s\r\n"),
+    log_print(F("WS:   client %i connected from %d.%d.%d.%d url: %s"),
       client, ip[0], ip[1], ip[2], ip[3], data
     );
 #endif
     unhandled_client_request = false;
   } else if (type == WStype_DISCONNECTED) {
 #ifdef LOG_CLIENT_CONNECTS
-    log_print(F("WS:   client %i disconnected\r\n"), client);
+    log_print(F("WS:   client %i disconnected"), client);
 #endif
     p->client_request[client] = CLIENT_REQUEST_NONE;
     unhandled_client_request = false;
   } else if (type == WStype_TEXT) {
-    if (!strncmp_P((const char *)data, PSTR("reset"), len)) {
-      p->client_request[client] = CLIENT_REQUEST_RESET;
-      unhandled_client_request = false;
-    } else if (!strncmp_P((const char *)data, PSTR("reboot"), len)) {
+    if (!strncmp_P((const char *)data, PSTR("reboot"), len)) {
       p->client_request[client] = CLIENT_REQUEST_REBOOT;
       unhandled_client_request = false;
     } else if (!strncmp_P((const char *)data, PSTR("state"), len)) {
@@ -300,8 +292,8 @@ static void ws_event(uint8_t client, WStype_t type, uint8_t *data, size_t len) {
     } else if (!strncmp_P((const char *)data, PSTR("adc"), len)) {
       p->client_request[client] = CLIENT_REQUEST_ADC;
       unhandled_client_request = false;
-    } else if ((len >= 3) && (!strncmp_P((const char *)data, PSTR("rtc"), 3))) {
-      String tm((const char *)&data[4]);     // strip 'rtc ' from tm
+    } else if ((len >= 3) && (!strncmp_P((const char *)data, PSTR("sync"), 4))) {
+      String tm((const char *)&data[5]);     // strip 'sync ' from tm
       String ms((const char *)&data[len-3]); // get milliseconds
       struct timespec tv;
 
@@ -310,8 +302,9 @@ static void ws_event(uint8_t client, WStype_t type, uint8_t *data, size_t len) {
       tv.tv_sec  = tm.toInt();
       tv.tv_nsec = ms.toInt() * 1000000;
 
-      if (rtc_set(&tv) == 0) {
-        clock_settime(CLOCK_REALTIME, &tv);
+      clock_settime(CLOCK_REALTIME, &tv);
+      if (rtc_set(&tv) != 0) {
+        log_print(F("WS:   could not set RTC"));
       }
 
       unhandled_client_request = false;
@@ -339,7 +332,7 @@ static void ws_event(uint8_t client, WStype_t type, uint8_t *data, size_t len) {
   }
 
   if (unhandled_client_request) {
-    log_print(F("WS:   unhandled client request: %s\r\n"), data);
+    log_print(F("WS:   unhandled client request: %s"), data);
   }
 }
 
@@ -368,7 +361,7 @@ bool websocket_init(void) {
 
   if (bootup) {
     if (!config->websocket_enabled) {
-      log_print(F("WS:   websockets disabled in config\r\n"));
+      log_print(F("WS:   websockets disabled in config"));
 
       config_fini();
 
@@ -378,7 +371,7 @@ bool websocket_init(void) {
 
   config_fini();
 
-  log_print(F("WS:   initializing websockets\r\n"));
+  log_print(F("WS:   initializing websockets"));
 
   p = (WS_PrivateData *)malloc(sizeof (WS_PrivateData));
   memset(p, 0, sizeof (WS_PrivateData));
@@ -397,7 +390,7 @@ bool websocket_init(void) {
 bool websocket_fini(void) {
   if (!p) return (false);
 
-  log_print(F("WS:   closing websockets\r\n"));
+  log_print(F("WS:   closing websockets"));
 
   delete (p->websocket);
 

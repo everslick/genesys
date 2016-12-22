@@ -19,6 +19,7 @@
 
 #include "filesystem.h"
 #include "terminal.h"
+#include "logger.h"
 #include "system.h"
 #include "module.h"
 #include "config.h"
@@ -76,6 +77,12 @@ static bool initialized = false;
 
 static void cli_task_delete(int pid);
 
+static char *color_str(char buf[], uint8_t col) {
+  sprintf_P(buf, PSTR("\033[0;3%im"), col);
+
+  return (buf);
+}
+
 static void module_state(String &str, int idx, const String &module) {
   int len, color = COL_RED;
   char col[8];
@@ -97,9 +104,9 @@ static void module_state(String &str, int idx, const String &module) {
     str += F("  ");
   }
 
-  str += log_color_str(col, color);
+  str += color_str(col, color);
   str += module_state_str(state);
-  str += log_color_str(col, COL_DEFAULT);
+  str += color_str(col, COL_DEFAULT);
   str += F("\r\n");
 }
 
@@ -111,7 +118,7 @@ static void eval_module_call(Terminal &term, const String &mod, const String &ac
 
   if (!module_found) {
     if (mod == F("help")) {
-      str += log_color_str(col, COL_GREEN);
+      str += color_str(col, COL_GREEN);
       str += F("available modules are:\r\n");
 
       for (int i=0; i<module_count(); i++) {
@@ -120,7 +127,7 @@ static void eval_module_call(Terminal &term, const String &mod, const String &ac
         str += F("\r\n");
       }
 
-      str += log_color_str(col, COL_DEFAULT);
+      str += color_str(col, COL_DEFAULT);
     } else if ((act == F("state")) && ((mod == "") || (mod == F("all")))) {
       for (int i=0; i<module_count(); i++) {
         module_state(str, i, module_name(i));
@@ -138,7 +145,7 @@ static void eval_module_call(Terminal &term, const String &mod, const String &ac
         }
       }
     } else {
-      str += log_color_str(col, COL_RED);
+      str += color_str(col, COL_RED);
 
       if (mod.length() != 0) {
         str += F("unknown module '");
@@ -147,7 +154,7 @@ static void eval_module_call(Terminal &term, const String &mod, const String &ac
 
       str += F("try '");
       str += act + F(" help' to get a list of modules\r\n");
-      str += log_color_str(col, COL_DEFAULT);
+      str += color_str(col, COL_DEFAULT);
     }
 
     term.Print(str);
@@ -186,10 +193,10 @@ static void cpu_turbo(Terminal &term, const String &arg) {
   else if (arg == F("1") || arg == F("on"))  system_turbo_set(true);
   else if (arg == F("0") || arg == F("off")) system_turbo_set(false);
   else {
-    str += log_color_str(col, COL_RED);
+    str += color_str(col, COL_RED);
     str += F("unknown argument: ");
     str += arg + F("\r\n");
-    str += log_color_str(col, COL_DEFAULT);
+    str += color_str(col, COL_DEFAULT);
   }
 
   term.Print(str);
@@ -201,6 +208,11 @@ static void config_key(Terminal &term, const String &arg) {
   char col[8];
   String str;
   bool ok;
+
+  if (arg == "") {
+    term.Print(F("conf: missing argument\r\n"));
+    return;
+  }
 
   if (idx >= 0) {
     key = arg.substring(0, idx);
@@ -220,10 +232,10 @@ static void config_key(Terminal &term, const String &arg) {
   }
 
   if (!ok) {
-    str += log_color_str(col, COL_RED);
-    str += F("conf: could not get or set config key: ");
+    str += color_str(col, COL_RED);
+    str += F("conf: invalid config key: ");
     str += key;
-    str += log_color_str(col, COL_DEFAULT);
+    str += color_str(col, COL_DEFAULT);
   }
 
   if (str != "") str += F("\r\n");
@@ -263,6 +275,11 @@ static void mv(Terminal &term, const String &arg) {
   int idx = arg.indexOf(' ');
   String from, to;
 
+  if (!rootfs) {
+    term.Print(F("mv: filesystem not mounted\r\n"));
+    return;
+  }
+
   if (idx < 0) {
     term.Print(F("mv: missing argument\r\n"));
     return;
@@ -274,7 +291,28 @@ static void mv(Terminal &term, const String &arg) {
   from.trim();
   to.trim();
 
-  fs_mv(from, to);
+  if (!rootfs->rename(from, to)) {
+    term.Print(F("mv: file not found\r\n"));
+    return;
+  }
+}
+
+static void rm(Terminal &term, const String &arg) {
+  if (!rootfs) {
+    term.Print(F("rm: filesystem not mounted\r\n"));
+    return;
+  }
+
+  if (arg == "") {
+    term.Print(F("rm: missing argument\r\n"));
+    return;
+  }
+
+  if (!rootfs->remove(arg)) {
+    term.Print(F("rm: file not found\r\n"));
+    return;
+  }
+
 }
 
 static void date(Terminal &term, const String &arg) {
@@ -295,10 +333,10 @@ static void date(Terminal &term, const String &arg) {
 
       clock_settime(CLOCK_REALTIME, &tv);
     } else {
-      str += log_color_str(col, COL_RED);
+      str += color_str(col, COL_RED);
       str += F("malformed date string: ");
       str += arg + F("\r\n");
-      str += log_color_str(col, COL_DEFAULT);
+      str += color_str(col, COL_DEFAULT);
     }
   }
 
@@ -349,6 +387,10 @@ static void localtime(Terminal &term, const String &arg) {
   term.Print(dt.str() + F("\r\n"));
 }
 
+static void adc_read(Terminal &term) {
+  term.Print(String(analogRead(17)) + F("\r\n"));
+}
+
 static void systohc(Terminal &term, const String &arg) {
   struct timespec tv;
 
@@ -371,88 +413,81 @@ static void info(Terminal &term, const String &arg) {
   String str;
 
   if (!str.reserve(200)) {
-    log_print(F("CON:  failed to allocate memory\n"));
+    log_print(F("CON:  failed to allocate memory"));
   }
 
   if (arg == F("help") || arg == "") {
     str = F("info [i] can be one of:\r\n\t");
     str += F("all, log, device, version, build, ");
-    str += F("load, sys, flash, net, ap, wifi");
+    str += F("sys, flash, net, ap, wifi");
     term.Print(str);
   }
 
   if (arg == F("all") || arg == F("log")) {
     str = "\r\n";
-    str += log_color_str(col, COL_RED);
-    log_dump_raw(str, -1);
+    term.Color(TERM_RED);
+    logger_dump_raw(str, -1);
     term.Print(str);
   }
 
   if (arg == F("all") || arg == F("device")) {
     str = "\r\n";
-    str += log_color_str(col, COL_MAGENTA);
+    term.Color(TERM_MAGENTA);
     system_device_info(str);
     term.Print(str);
   }
 
   if (arg == F("all") || arg == F("version")) {
     str = "\r\n";
-    str += log_color_str(col, COL_BLUE);
+    term.Color(TERM_BLUE);
     system_version_info(str);
     term.Print(str);
   }
 
   if (arg == F("all") || arg == F("build")) {
     str = "\r\n";
-    str += log_color_str(col, COL_YELLOW);
+    term.Color(TERM_YELLOW);
     system_build_info(str);
-    term.Print(str);
-  }
-
-  if (arg == F("all") || arg == F("load")) {
-    str = "\r\n";
-    str += log_color_str(col, COL_RED);
-    system_load_info(str);
     term.Print(str);
   }
 
   if (arg == F("all") || arg == F("sys")) {
     str = "\r\n";
-    str += log_color_str(col, COL_GREEN);
+    term.Color(TERM_GREEN);
     system_sys_info(str);
     term.Print(str);
   }
 
   if (arg == F("all") || arg == F("flash")) {
     str = "\r\n";
-    str += log_color_str(col, COL_CYAN);
+    term.Color(TERM_CYAN);
     system_flash_info(str);
     term.Print(str);
   }
 
   if (arg == F("all") || arg == F("net")) {
     str = "\r\n";
-    str += log_color_str(col, COL_MAGENTA);
+    term.Color(TERM_MAGENTA);
     system_net_info(str);
     term.Print(str);
   }
 
   if (arg == F("all") || arg == F("ap")) {
     str = "\r\n";
-    str += log_color_str(col, COL_RED);
+    term.Color(TERM_RED);
     system_ap_info(str);
     term.Print(str);
   }
 
   if (arg == F("all") || arg == F("wifi")) {
     str = "\r\n";
-    str += log_color_str(col, COL_YELLOW);
+    term.Color(TERM_YELLOW);
     system_wifi_info(str);
     term.Print(str);
   }
 
   str = "\r\n";
-  str += log_color_str(col, COL_DEFAULT);
+  term.Color(TERM_DEFAULT);
   term.Print(str);
 }
 
@@ -534,7 +569,7 @@ static void top(Terminal &term) {
 
   // log dump
   line = "";
-  log_dump_raw(line, 5);
+  logger_dump_raw(line, 5);
   term.Print(line);
 }
 
@@ -580,7 +615,7 @@ static int exec_c64(Task *task) {
     d->ms = millis();
     d->count = 3;
 
-    term.Color(TERM_BRIGHT, TERM_WHITE, TERM_BLUE);
+    term.Color(TERM_WHITE, TERM_BLUE, TERM_BRIGHT);
     term.ScreenClear();
     term.Center(F("**** COMMODORE 64 BASIC V2 ****"));
     term.LineFeed(2);
@@ -591,7 +626,7 @@ static int exec_c64(Task *task) {
     task->data = d;
   } else if (task->state == TASK_STATE_STOP) {
     term.Print(F("READY.\r\n"));
-    term.Color(TERM_RESET, TERM_DEFAULT, TERM_DEFAULT);
+    term.Color(TERM_DEFAULT, TERM_DEFAULT, TERM_RESET);
 
     delete ((Data *)task->data);
     cli_task_delete(task->pid);
@@ -707,8 +742,103 @@ int cli_poll_task(int pid) {
   }
 }
 
+static void add_completion(lined_t *l, const String &str) {
+  lined_completion_add(l, str.c_str());
+}
+
+static char *add_hint(const String &str) {
+  static String hint;
+
+  hint = str;
+
+  return ((char *)hint.c_str());
+}
+
+char *cli_hint_cb(const char *buf, int *color, int *bold) {
+  String cmd = buf;
+  *color = 34;
+  *bold = 1;
+
+  if (cmd == F("cat"))    return (add_hint(F(" <file>")));
+  if (cmd == F("conf"))   return (add_hint(F(" <key>[=<value>]")));
+  if (cmd == F("date"))   return (add_hint(F(" [YYYY/MM/DD HH:MM:SS]")));
+  if (cmd == F("fini"))   return (add_hint(F(" <module>")));
+  if (cmd == F("flash"))  return (add_hint(F(" <led>")));
+  if (cmd == F("high"))   return (add_hint(F(" <gpio>")));
+  if (cmd == F("info"))   return (add_hint(F(" <info>|all")));
+  if (cmd == F("init"))   return (add_hint(F(" <module>")));
+  if (cmd == F("kill"))   return (add_hint(F(" <pid>")));
+  if (cmd == F("low"))    return (add_hint(F(" <gpio>")));
+  if (cmd == F("mv"))     return (add_hint(F(" <file> <name>")));
+  if (cmd == F("off"))    return (add_hint(F(" <led>")));
+  if (cmd == F("on"))     return (add_hint(F(" <led>")));
+  if (cmd == F("ping"))   return (add_hint(F(" <host>")));
+  if (cmd == F("pulse"))  return (add_hint(F(" <led>")));
+  if (cmd == F("rm"))     return (add_hint(F(" <file>")));
+  if (cmd == F("state"))  return (add_hint(F(" [<module>|all]")));
+  if (cmd == F("toggle")) return (add_hint(F(" <gpio>")));
+  if (cmd == F("turbo"))  return (add_hint(F(" [0|1]")));
+
+  return (NULL);
+}
+
+void cli_completion_cb(lined_t *l, const char *buf) {
+  if (buf[0] == 'a') {
+    add_completion(l, F("adc"));
+  } else if (buf[0] == 'c') {
+    add_completion(l, F("cat"));
+    add_completion(l, F("clear"));
+    add_completion(l, F("conf"));
+  } else if (buf[0] == 'd') {
+    add_completion(l, F("date"));
+    add_completion(l, F("df"));
+  } else if (buf[0] == 'f') {
+    add_completion(l, F("fini"));
+    add_completion(l, F("flash"));
+    add_completion(l, F("format"));
+  } else if (buf[0] == 'h') {
+    add_completion(l, F("help"));
+    add_completion(l, F("high"));
+  } else if (buf[0] == 'i') {
+    add_completion(l, F("init"));
+  } else if (buf[0] == 'k') {
+    add_completion(l, F("kill"));
+  } else if (buf[0] == 'l') {
+    add_completion(l, F("localtime"));
+    add_completion(l, F("low"));
+    add_completion(l, F("ls"));
+  } else if (buf[0] == 'm') {
+    add_completion(l, F("mv"));
+  } else if (buf[0] == 'n') {
+    add_completion(l, F("ntp"));
+  } else if (buf[0] == 'o') {
+    add_completion(l, F("off"));
+    add_completion(l, F("on"));
+  } else if (buf[0] == 'p') {
+    add_completion(l, F("ping"));
+    add_completion(l, F("ps"));
+    add_completion(l, F("pulse"));
+  } else if (buf[0] == 'r') {
+    add_completion(l, F("reboot"));
+    add_completion(l, F("reset"));
+    add_completion(l, F("rm"));
+    add_completion(l, F("rtc"));
+  } else if (buf[0] == 's') {
+    add_completion(l, F("save"));
+    add_completion(l, F("scan"));
+    add_completion(l, F("state"));
+    add_completion(l, F("systohc"));
+  } else if (buf[0] == 't') {
+    add_completion(l, F("toggle"));
+    add_completion(l, F("top"));
+    add_completion(l, F("turbo"));
+  } else if (buf[0] == 'u') {
+    add_completion(l, F("uptime"));
+  }
+}
+
 int cli_run_command(Terminal &term, const String &line) {
-#ifdef DEBUG
+#ifdef ALPHA
   enum { PARSE_CMD, PARSE_ARG, PARSE_END } parse = PARSE_CMD;
   String str, cmd, arg;
   bool exists, ret;
@@ -762,7 +892,7 @@ int cli_run_command(Terminal &term, const String &line) {
   } else if (cmd == F("cat")) {
     cat(term, arg);
   } else if (cmd == F("rm")) {
-    fs_rm(arg);
+    rm(term, arg);
   } else if (cmd == F("df")) {
     fs_df(str);
   } else if (cmd == F("mv")) {
@@ -779,12 +909,16 @@ int cli_run_command(Terminal &term, const String &line) {
     uptime(term, arg);
   } else if (cmd == F("localtime")) {
     localtime(term, arg);
+  } else if (cmd == F("adc")) {
+    adc_read(term);
   } else if (cmd == F("toggle")) {
     gpio_toggle(arg.toInt());
   } else if (cmd == F("high")) {
     gpio_high(arg.toInt());
   } else if (cmd == F("low")) {
     gpio_low(arg.toInt());
+  } else if (cmd == F("flash")) {
+    led_flash(arg.toInt(), 200);
   } else if (cmd == F("pulse")) {
     led_pulse(arg.toInt(), 500, 500);
   } else if (cmd == F("off")) {
@@ -803,7 +937,7 @@ int cli_run_command(Terminal &term, const String &line) {
   } else if (cmd == F("reset")) {
     config_reset();
   } else if (cmd == F("help")) {
-    term.Print(log_color_str(col, COL_GREEN));
+    term.Color(TERM_GREEN);
     term.Print(F("available commands are:\r\n"));
     term.Print(F("\tinit <m>     ... initialize module <m>\r\n"));
     term.Print(F("\tfini <m>     ... finalize module <m>\r\n"));
@@ -823,9 +957,11 @@ int cli_run_command(Terminal &term, const String &line) {
     term.Print(F("\tsystohc      ... set RTC from system time\r\n"));
     term.Print(F("\tuptime       ... get system uptime\r\n"));
     term.Print(F("\tlocaltime    ... get local time\r\n"));
+    term.Print(F("\tadc          ... read ADC value\r\n"));
     term.Print(F("\ttoggle <p>   ... toggle GPIO pin <p>\r\n"));
     term.Print(F("\thigh <p>     ... set GPIO pin <p> high\r\n"));
     term.Print(F("\tlow <p>      ... set GPIO pin <p> low\r\n"));
+    term.Print(F("\tflash <l>    ... flash led <l> once\r\n"));
     term.Print(F("\tpulse <l>    ... let led <l> blink\r\n"));
     term.Print(F("\ton <l>       ... switch led <l> on\r\n"));
     term.Print(F("\toff <l>      ... switch led <l> off\r\n"));
@@ -839,13 +975,13 @@ int cli_run_command(Terminal &term, const String &line) {
     term.Print(F("\treboot       ... reboot device\r\n"));
     term.Print(F("\treset        ... perform factory reset\r\n"));
     term.Print(F("\thelp         ... print this info\r\n"));
-    term.Print(log_color_str(col, COL_DEFAULT));
+    term.Color(TERM_DEFAULT);
   } else {
     if (cmd != "") {
-      term.Print(log_color_str(col, COL_RED));
+      term.Color(TERM_RED);
       term.Print(F("unknown command '"));
       term.Print(cmd + F("'\r\ntry 'help' to get a list of commands\r\n"));
-      term.Print(log_color_str(col, COL_DEFAULT));
+      term.Color(TERM_DEFAULT);
     }
   }
 

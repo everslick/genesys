@@ -85,7 +85,7 @@ bool Shell::Poll(void) {
   if (state == LOGIN_STATE_IDLE) {
     state = LOGIN_STATE_LOGIN;
 
-    Print(F("\r\n%s V%s Firmware V%s%stty/%i\r\n\r\n"),
+    Print(F("\r\n%s V%s Firmware V%s %s tty/%i\r\n\r\n"),
       system_hw_device().c_str(),  system_hw_version().c_str(),
       system_fw_version().c_str(), system_fw_build().c_str(), pty 
     );
@@ -130,6 +130,9 @@ bool Shell::Poll(void) {
           Prompt(F("%s:~$ "), system_device_name().c_str());
           lined_echo(lined, 1);
           lined_reset(lined);
+
+          lined_set_completion_cb(cli_completion_cb);
+          lined_set_hint_cb(cli_hint_cb);
         } else {
           state = LOGIN_STATE_LOGIN;
           Print(F("Login incorrect\r\n"));
@@ -156,16 +159,16 @@ bool Shell::Poll(void) {
         if (key == TERM_KEY_ENTER) {
           const char *cmd = lined_line(lined);
 
-          Print(F("\r\n"));
-
           if (String(cmd) == F("logout")) {
             state = LOGIN_STATE_EXIT;
           } else {
+            Print(F("\r\n"));
+
             task = cli_run_command(*this, cmd);
             lined_history_add(cmd);
-          }
 
-          lined_reset(lined);
+            lined_reset(lined);
+          }
         } else if (key == TERM_KEY_CTRL_D) {
           state = LOGIN_STATE_EXIT;
         }

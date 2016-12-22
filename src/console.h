@@ -22,6 +22,7 @@
 
 #include <Arduino.h>
 
+int  console_state(void);
 bool console_init(void);
 bool console_fini(void);
 void console_poll(void);

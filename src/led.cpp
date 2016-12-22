@@ -17,11 +17,26 @@
     Copyright (C) 2016 Clemens Kirchgatterer <clemens@1541.org>.
 */
 
-#include "transport.h"
+#include "filesystem.h"
+#include "telemetry.h"
 #include "gpio.h"
 #include "net.h"
 
 #include "led.h"
+
+static void red_led_poll(void) {
+  static bool led = false;
+
+  if (!led && fs_full()) {
+    led_pulse(LED_RED, ERROR_LED_BLINK_PERIOD, ERROR_LED_BLINK_PERIOD);
+    led = true;
+  }
+
+  if (led && !fs_full()) {
+    led_off(LED_RED);
+    led = false;
+  }
+}
 
 static void grn_led_poll(void) {
   static uint32_t ms = millis();
@@ -43,7 +58,7 @@ static void grn_led_poll(void) {
 }
 
 static void yel_led_poll(void) {
-  static bool transport_is_connected = true;
+  static bool telemetry_is_connected = true;
   static bool       net_is_connected = true;
   static bool       net_is_enabled   = true;
 
@@ -65,16 +80,16 @@ static void yel_led_poll(void) {
 
   if (!net_is_enabled) return;
 
-  if (transport_is_connected && !transport_connected()) {
-    transport_is_connected = false;
+  if (telemetry_is_connected && !telemetry_connected()) {
+    telemetry_is_connected = false;
 
-    led_pulse(LED_YEL, TRANSPORT_LED_BLINK_PERIOD, TRANSPORT_LED_BLINK_PERIOD);
+    led_pulse(LED_YEL, TELEMETRY_LED_BLINK_PERIOD, TELEMETRY_LED_BLINK_PERIOD);
 
     return;
   }
 
-  if (!transport_is_connected && transport_connected()) {
-    transport_is_connected = true;
+  if (!telemetry_is_connected && telemetry_connected()) {
+    telemetry_is_connected = true;
 
     led_off(LED_YEL);
 
@@ -117,6 +132,7 @@ bool led_fini(void) {
 void led_poll(void) {
   grn_led_poll();
   yel_led_poll();
+  red_led_poll();
 }
 
 void led_on(int led) {

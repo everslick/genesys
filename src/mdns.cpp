@@ -35,7 +35,7 @@ static void mdns_start(void) {
   if (!mdns) return;
 
   if (mdns->begin(system_device_name().c_str())) {
-    log_print(F("MDNS: hostname set to '%s.local'\r\n"),
+    log_print(F("MDNS: hostname set to '%s.local'"),
       system_device_name().c_str()
     );
 
@@ -43,7 +43,7 @@ static void mdns_start(void) {
 
     active = true;
   } else {
-    log_print(F("MDNS: could not start mDNS responder\r\n"));
+    log_print(F("MDNS: could not start mDNS responder"));
 
     delete (mdns);
     mdns = NULL;
@@ -51,7 +51,7 @@ static void mdns_start(void) {
 }
 
 static void mdns_stop(void) {
-  log_print(F("MDNS: stopping mDNS responder\r\n"));
+  log_print(F("MDNS: stopping mDNS responder"));
 
   active = false;
 }
@@ -69,7 +69,7 @@ bool mdns_init(void) {
     config_init();
 
     if (!config->mdns_enabled) {
-      log_print(F("MDNS: responder disabled in config\r\n"));
+      log_print(F("MDNS: responder disabled in config"));
 
       config_fini();
 
@@ -79,7 +79,7 @@ bool mdns_init(void) {
     config_fini();
   }
 
-  log_print(F("MDNS: initializing responder\r\n"));
+  log_print(F("MDNS: initializing responder"));
 
   mdns = new MDNSResponder();
 
@@ -89,7 +89,7 @@ bool mdns_init(void) {
 bool mdns_fini(void) {
   if (!mdns) return (false);
 
-  log_print(F("MDNS: disabling mDNS responder\r\n"));
+  log_print(F("MDNS: disabling mDNS responder"));
 
   delete (mdns);
   mdns = NULL;

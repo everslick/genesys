@@ -17,10 +17,14 @@
     Copyright (C) 2016 Clemens Kirchgatterer <clemens@1541.org>.
 */
 
-#ifndef _DNS_H_
-#define _DNS_H_
+#ifndef _TELEMETRY_H_
+#define _TELEMETRY_H_
 
-bool dns_init(void);
-void dns_poll(void);
+int telemetry_state(void);
+bool telemetry_init(void);
+bool telemetry_fini(void);
+void telemetry_poll(void);
 
-#endif // _DNS_H_
+bool telemetry_connected(void);
+
+#endif // _TELEMETRY_H_

@@ -28,7 +28,10 @@ extern FS *rootfs;
 int fs_state(void);
 bool fs_init(void);
 bool fs_fini(void);
+void fs_poll(void);
 
+bool fs_full(void);
+void fs_usage(int &total, int &used, int &unused);
 void fs_format(void);
 void fs_ls(String &str);
 void fs_mv(const String &from, const String &to);

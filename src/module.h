@@ -22,7 +22,7 @@
 
 #include <Arduino.h>
 
-#ifdef DEBUG
+#ifdef ALPHA
 #define MODULE(_MOD_)                                              \
 static const char *_MOD_ ## _name = #_MOD_;                        \
                                                                    \

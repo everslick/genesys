@@ -29,8 +29,7 @@ enum {
   CONF_AP,
   CONF_MDNS,
   CONF_NTP,
-  CONF_RTC,
-  CONF_MQTT,
+  CONF_TELEMETRY,
   CONF_UPDATE,
   CONF_STORAGE,
   CONF_FOOTER
@@ -38,9 +37,13 @@ enum {
 
 extern const char *html_page_style_css;
 extern const char *html_page_reset_css;
+extern const char *html_page_menu_css;
 
 extern const char *html_page_common_js;
 extern const char *html_page_config_js;
+extern const char *html_page_clock_js;
+extern const char *html_page_logo_js;
+extern const char *html_page_root_js;
 extern const char *html_page_sys_js;
 
 bool html_init(void);
@@ -56,8 +59,10 @@ void html_insert_login_content(String &html, const String &msg);
 void html_insert_file_content(String &html, const String &path);
 void html_insert_conf_content(String &html, int conf);
 void html_insert_root_content(String &html);
+void html_insert_clock_content(String &html);
 void html_insert_info_content(String &html);
 void html_insert_sys_content(String &html);
+void html_insert_log_content(String &html);
 
 void html_insert_module_header(String &html);
 void html_insert_module_row(String &html, int module);
@@ -65,5 +70,7 @@ void html_insert_module_footer(String &html);
 
 void html_insert_websocket_script(String &html);
 void html_insert_upload_form(String &html);
+
+void html_insert_wifi_list(String &html);
 
 #endif // _HTML_H_

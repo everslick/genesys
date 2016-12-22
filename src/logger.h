@@ -17,16 +17,26 @@
     Copyright (C) 2016 Clemens Kirchgatterer <clemens@1541.org>.
 */
 
-#ifndef _SYSLOG_H_
-#define _SYSLOG_H_
+#ifndef _LOGGER_H_
+#define _LOGGER_H_
 
 #include <Arduino.h>
 
-bool syslog_init(void);
-bool syslog_fini(void);
-void syslog_poll(void);
+#define LOGGER_TIME_COLOR     2 // GREEN
+#define LOGGER_TEXT_COLOR     9 // DEFAULT
 
-bool syslog_print(const char *str, uint16_t len);
-bool syslog_print(const String &str);
+#define LOGGER_MAX_LOG_LINES 30
+#define LOGGER_MAX_LINE_LEN  65
 
-#endif // _SYSLOG_H_
+int logger_state(void);
+bool logger_init(void);
+bool logger_fini(void);
+void logger_poll(void);
+
+bool logger_print(const char *str, uint16_t len, uint8_t col);
+bool logger_progress(const char *str, uint16_t len);
+
+void logger_dump_html(String &str, int lines = -1);
+void logger_dump_raw(String &str, int lines = -1);
+
+#endif // _LOGGER_H_

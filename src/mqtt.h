@@ -32,6 +32,12 @@
 #define MQTT_VERSION_3_1      3
 #define MQTT_VERSION_3_1_1    4
 
+#ifdef TELEMETRY_TLS_SUPPORT
+  #define MQTT_PORT 8883
+#else
+  #define MQTT_PORT 1883
+#endif
+
 // MQTT_VERSION : Pick the version
 //#define MQTT_VERSION MQTT_VERSION_3_1
 #ifndef MQTT_VERSION
@@ -54,6 +60,7 @@
 #endif
 
 // Possible values for client.state()
+#define MQTT_WRONG_FINGERPRINT      -5
 #define MQTT_CONNECTION_TIMEOUT     -4
 #define MQTT_CONNECTION_LOST        -3
 #define MQTT_CONNECT_FAILED         -2
@@ -89,11 +96,12 @@ class MQTT {
 
 public:
 
-   MQTT(const char *server, uint16_t port = 1883);
+   MQTT(const char *host, uint16_t port = MQTT_PORT, const String &fingerprint = "");
    ~MQTT(void);
 
    void ReceiveCallback(std::function<void(char*, uint8_t*, unsigned int)> cb);
 
+   bool connect(const char *id, const char *key);
    bool connect(const char *id, const char *user, const char *pass);
    bool connect(const char *id, const char *user, const char *pass, const char *willTopic, uint8_t willQos, bool willRetain, const char *willMessage);
 
@@ -126,7 +134,13 @@ private:
    unsigned long lastInActivity;
    bool pingOutstanding;
 
+#ifdef TELEMETRY_TLS_SUPPORT
+   WiFiClientSecure *client;
+#else
    WiFiClient *client;
+#endif
+
+   String fingerprint;
    const char *host;
    uint16_t port;
    int state;

@@ -19,6 +19,7 @@
 
 /*
   MQTT.cpp - A simple client for MQTT.
+
   Nick O'Leary
   http://knolleary.net
   Clemens Kirchgatterer
@@ -29,18 +30,24 @@
 
 using namespace std;
 
-MQTT::MQTT(const char *server, uint16_t port) {
+MQTT::MQTT(const char *host, uint16_t port, const String &fingerprint) {
   state = MQTT_DISCONNECTED;
 
-  host = server;
+  this->host = host;
   this->port = port;
 
-  client    = NULL;
-  callback  = NULL;
+  client   = NULL;
+  callback = NULL;
+
+  this->fingerprint = fingerprint;
 }
 
 MQTT::~MQTT(void) {
   delete (client);
+}
+
+bool MQTT::connect(const char *id, const char *key) {
+  return (connect(id, key, "", 0, 0, 0, 0));
 }
 
 bool MQTT::connect(const char *id, const char *user, const char *pass) {
@@ -49,7 +56,11 @@ bool MQTT::connect(const char *id, const char *user, const char *pass) {
 
 bool MQTT::connect(const char *id, const char *user, const char *pass, const char *willTopic, uint8_t willQos, bool willRetain, const char *willMessage) {
   if (!client) {
+#ifdef TELEMETRY_TLS_SUPPORT
+    client = new WiFiClientSecure();
+#else
     client = new WiFiClient();
+#endif
   }
 
   if (!connected()) {
@@ -59,88 +70,99 @@ bool MQTT::connect(const char *id, const char *user, const char *pass, const cha
 
     result = client->connect(host, port);
 
-    if (result == 1) {
-      nextMsgId = 1;
-      // Leave room in the buffer for header and variable length field
-      uint16_t length = 5;
-      unsigned int j;
+    if (result != 1) {
+      state = MQTT_CONNECT_FAILED;
+
+      return (false);
+    }
+
+#ifdef TELEMETRY_TLS_SUPPORT
+    if (!client->verify(fingerprint.c_str(), host)) {
+      state = MQTT_WRONG_FINGERPRINT;
+      client->stop();
+
+      return (false);
+    }
+#endif
+
+    nextMsgId = 1;
+    // Leave room in the buffer for header and variable length field
+    uint16_t length = 5;
+    unsigned int j;
 
 #if MQTT_VERSION == MQTT_VERSION_3_1
-      uint8_t d[9] = { 0x00,0x06,'M','Q','I','s','d','p', MQTT_VERSION };
+    uint8_t d[9] = { 0x00,0x06,'M','Q','I','s','d','p', MQTT_VERSION };
 #define MQTT_HEADER_VERSION_LENGTH 9
 #elif MQTT_VERSION == MQTT_VERSION_3_1_1
-      uint8_t d[7] = { 0x00,0x04,'M','Q','T','T', MQTT_VERSION };
+    uint8_t d[7] = { 0x00,0x04,'M','Q','T','T', MQTT_VERSION };
 #define MQTT_HEADER_VERSION_LENGTH 7
 #endif
-      for (j = 0; j<MQTT_HEADER_VERSION_LENGTH; j++) {
-        buffer[length++] = d[j];
-      }
-
-      uint8_t v;
-      if (willTopic) {
-        v = 0x06 | (willQos<<3) | (willRetain<<5);
-      } else {
-        v = 0x02;
-      }
-
-      if (user != NULL) {
-        v = v | 0x80;
-
-        if(pass != NULL) {
-          v = v | (0x80>>1);
-        }
-      }
-
-      buffer[length++] = v;
-      buffer[length++] = ((MQTT_KEEPALIVE) >> 8);
-      buffer[length++] = ((MQTT_KEEPALIVE) & 0xFF);
-
-      length = writeString(id, buffer, length);
-
-      if (willTopic) {
-        length = writeString(willTopic, buffer, length);
-        length = writeString(willMessage, buffer, length);
-      }
-
-      if (user != NULL) {
-        length = writeString(user, buffer, length);
-        if(pass != NULL) {
-          length = writeString(pass, buffer, length);
-        }
-      }
-
-      write(MQTTCONNECT, buffer, length-5);
-
-      lastInActivity = lastOutActivity = millis();
-
-      while (!client->available()) {
-        unsigned long t = millis();
-        if (t-lastInActivity >= ((int32_t) MQTT_SOCKET_TIMEOUT*1000UL)) {
-          state = MQTT_CONNECTION_TIMEOUT;
-          client->stop();
-
-          return (false);
-        }
-      }
-
-      uint8_t llen;
-      uint16_t len = readPacket(&llen);
-
-      if (len == 4) {
-        if (buffer[3] == 0) {
-          lastInActivity = millis();
-          pingOutstanding = false;
-          state = MQTT_CONNECTED;
-
-          return (true);
-        } else {
-          state = buffer[3];
-        }
-      }
-      client->stop();
-    } else {
-      state = MQTT_CONNECT_FAILED;
+    for (j = 0; j<MQTT_HEADER_VERSION_LENGTH; j++) {
+      buffer[length++] = d[j];
     }
+
+    uint8_t v;
+    if (willTopic) {
+      v = 0x06 | (willQos<<3) | (willRetain<<5);
+    } else {
+      v = 0x02;
+    }
+
+    if (user != NULL) {
+      v = v | 0x80;
+
+      if(pass != NULL) {
+        v = v | (0x80>>1);
+      }
+    }
+
+    buffer[length++] = v;
+    buffer[length++] = ((MQTT_KEEPALIVE) >> 8);
+    buffer[length++] = ((MQTT_KEEPALIVE) & 0xFF);
+
+    length = writeString(id, buffer, length);
+
+    if (willTopic) {
+      length = writeString(willTopic, buffer, length);
+      length = writeString(willMessage, buffer, length);
+    }
+
+    if (user != NULL) {
+      length = writeString(user, buffer, length);
+      if(pass != NULL) {
+        length = writeString(pass, buffer, length);
+      }
+    }
+
+    write(MQTTCONNECT, buffer, length-5);
+
+    lastInActivity = lastOutActivity = millis();
+
+    while (!client->available()) {
+      unsigned long t = millis();
+      if (t-lastInActivity >= ((int32_t) MQTT_SOCKET_TIMEOUT*1000UL)) {
+        state = MQTT_CONNECTION_TIMEOUT;
+        client->stop();
+
+        return (false);
+      }
+    }
+
+    uint8_t llen;
+    uint16_t len = readPacket(&llen);
+
+    if (len == 4) {
+      if (buffer[3] == 0) {
+        lastInActivity = millis();
+        pingOutstanding = false;
+        state = MQTT_CONNECTED;
+
+        return (true);
+      } else {
+        state = buffer[3];
+      }
+    }
+    client->stop();
 
     return (false);
   }

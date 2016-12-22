@@ -43,20 +43,13 @@
 
 typedef struct lined_t lined_t;
 
-typedef struct lined_completion_t {
-  int len;
-  char **cvec;
-} lined_completion_t;
-
-typedef void (lined_completion_cb)(const char *, lined_completion_t *);
-typedef char *(lined_hints_cb)(const char *, int *color, int *bold);
-typedef void (lined_free_hints_cb)(void *);
+typedef void (lined_completion_cb)(lined_t *, const char *buf);
+typedef char *(lined_hint_cb)(const char *, int *color, int *bold);
 
 void lined_set_completion_cb(lined_completion_cb *);
-void lined_set_hints_cb(lined_hints_cb *);
-void lined_set_free_hints_cb(lined_free_hints_cb *);
+void lined_set_hint_cb(lined_hint_cb *);
 
-void lined_add_completion(lined_completion_t *, const char *);
+void lined_completion_add(lined_t *, const char *);
 
 lined_t *lined_begin(Terminal *term);
 char    *lined_line(lined_t *);
@@ -67,10 +60,7 @@ void     lined_echo(lined_t *, int echo);
 void     lined_reset(lined_t *);
 void     lined_end(lined_t *);
 
-void lined_history_free(void);
-int  lined_history_add(const char *line);
-int  lined_history_len(int len);
-//int lined_history_save(const char *filename);
-//int lined_history_load(const char *filename);
+int lined_history_add(const char *line);
+int lined_history_len(int len);
 
 #endif // _LINED_H_

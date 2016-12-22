@@ -48,7 +48,7 @@ static bool encrypt(uint32_t *data, size_t len) {
   return (true);
 }
 
-static  bool decrypt(uint32_t *data, size_t len) {
+static bool decrypt(uint32_t *data, size_t len) {
   uint32_t n = len - 1;
   uint32_t z, y = data[0], p, q = 6 + 52 / (n + 1), sum = q * DELTA, e;
 

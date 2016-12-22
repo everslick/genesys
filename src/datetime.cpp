@@ -91,7 +91,7 @@ DateTime::str(void) {
 }
 
 uint8_t
-DateTime::DayOfWeek(uint8_t year, uint8_t month, uint8_t day) const {
+DateTime::DayOfWeek(uint8_t year, uint8_t month, uint8_t day) {
   uint8_t t = pgm_read_byte(&day_of_week[month - 1]);
   uint16_t y = year + 1970;
   
@@ -127,11 +127,11 @@ DateTime::DaysInMonth(uint8_t year, uint8_t month) {
 }
 
 uint8_t
-DateTime::NthDayOfWeek(uint8_t month, int8_t n, uint8_t dow) {
+DateTime::NthDayOfWeek(uint8_t year, uint8_t month, int8_t n, uint8_t dow) {
   // search forward
   if (n > 0) {
     uint8_t date = 1;
-    uint8_t first = DayOfWeek(_year, month, date);
+    uint8_t first = DayOfWeek(year, month, date);
 
     while (first != dow) {
       first = (first + 1) % 7;
@@ -145,8 +145,8 @@ DateTime::NthDayOfWeek(uint8_t month, int8_t n, uint8_t dow) {
 
   // search backwards
   if (n < 0) {
-    uint8_t date = DaysInMonth(_year, month);
-    uint8_t last = DayOfWeek(_year, month, date);
+    uint8_t date = DaysInMonth(year, month);
+    uint8_t last = DayOfWeek(year, month, date);
 
     while (last != dow) {
       last = (last - 1) % 7;
@@ -162,10 +162,10 @@ DateTime::NthDayOfWeek(uint8_t month, int8_t n, uint8_t dow) {
 }
 
 uint32_t
-DateTime::DST(uint8_t month, uint8_t hour, int8_t n, uint8_t dow) {
-  uint8_t day = NthDayOfWeek(month, n, dow);
+DateTime::DST(uint8_t year, uint8_t month, uint8_t hour, int8_t n, uint8_t dow) {
+  uint8_t day = NthDayOfWeek(year, month, n, dow);
 
-  DateTime dt(_year + 1970, month, day);
+  DateTime dt(year + 1970, month, day);
 
   return (dt + (hour * 3600));
 }
@@ -173,14 +173,14 @@ DateTime::DST(uint8_t month, uint8_t hour, int8_t n, uint8_t dow) {
 void
 DateTime::ConvertToLocalTime(void) {
   if (!local) {
-    uint32_t dst_start = DST(I18N_DST_START);
-    uint32_t dst_end   = DST(I18N_DST_END);
+    uint32_t dst_start = DST(_year, I18N_DST_START);
+    uint32_t dst_end   = DST(_year, I18N_DST_END);
     uint32_t time = TotalSeconds();
 
-    // first add time zone offset
+    // add time zone offset
     time += I18N_TZ_OFFSET * 60;
 
-    // second add daylight saving offset
+    // add daylight saving offset
     time += ((time >= dst_start) && (time < dst_end)) ? 3600 : 0;
 
     Init(time);

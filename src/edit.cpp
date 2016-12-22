@@ -34,12 +34,12 @@
 
   Key Bindings
   ------------
-  CTRL_S ... save file to disk
-  CTRL_F ... find string in text (not working)
-  CTRL_K ... delete to end of line
-  CTRL_B ... go to bottom of file
-  CTRL_T ... go to top of file
-  CTRL_Q ... exit
+  CTRL+S ... save file to disk
+  CTRL+F ... find string in text (not working)
+  CTRL+K ... delete to end of line
+  CTRL+B ... go to bottom of file
+  CTRL+T ... go to top of file
+  CTRL+Q ... exit
 */
 
 /*
@@ -318,7 +318,7 @@ private:
  
     gotoxy(0, 0);
 
-    term.Color(TERM_REVERSE, TERM_BLUE, TERM_WHITE);
+    term.Color(TERM_BLUE, TERM_WHITE, TERM_REVERSE);
 
     w += term.Print(F("File: %s (%s)"), filename, str.c_str());
     w += term.Insert(' ', width() - w - 50);
@@ -327,7 +327,7 @@ private:
     w += term.Print(F("Pos: %i,%i"), col + 1, row + 1);
     w += term.Insert(' ', width() - w);
 
-    term.Color(TERM_RESET, TERM_DEFAULT, TERM_DEFAULT);
+    term.Color(TERM_DEFAULT, TERM_DEFAULT, TERM_RESET);
   }
 
   void update() {

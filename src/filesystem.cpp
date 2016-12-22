@@ -17,8 +17,8 @@
     Copyright (C) 2016 Clemens Kirchgatterer <clemens@1541.org>.
 */
 
-#include "spiffs_api.h"
-#include "FS.h"
+#include <spiffs_api.h>
+#include <FS.h>
 
 #include "module.h"
 #include "log.h"
@@ -32,9 +32,11 @@ extern "C" uint32_t _SPIFFS_block;
 
 FS *rootfs = NULL;
 
+static bool filesystem_is_full = false;
+
 static bool filesystem_is_mounted(void) {
   if (!rootfs) {
-    log_print(F("FS:   SPIFFS not mounted\r\n"));
+    log_print(F("FS:   SPIFFS not mounted"));
   }
 
   return (rootfs != NULL);
@@ -48,6 +50,24 @@ String fs_format_bytes(size_t bytes) {
   return (String(bytes / 1024.0) + F("KB"));
 }
 
+bool fs_full(void) {
+  return (filesystem_is_full);
+}
+
+void fs_usage(int &total, int &used, int &unused) {
+  if (!filesystem_is_mounted()) return;
+
+  FSInfo info;
+
+  rootfs->info(info);
+ 
+  total  = info.totalBytes * 0.9;
+  used   = info.usedBytes;
+  unused = total - used;
+
+  if (unused < 0) unused = 0;
+}
+
 void fs_format(void) {
   if (!filesystem_is_mounted()) return;
 
@@ -56,28 +76,28 @@ void fs_format(void) {
 
     rootfs->info(info);
 
-    log_print(F("FS:   SPIFFS formatted (size=%s)\r\n"),
+    log_print(F("FS:   SPIFFS formatted (size=%s)"),
       fs_format_bytes(info.totalBytes).c_str()
     );
   } else {
-    log_print(F("FS:   could not format SPIFFS\r\n"));
+    log_print(F("FS:   could not format SPIFFS"));
   }
 }
 
 void fs_df(String &str) {
   if (!filesystem_is_mounted()) return;
 
+  int total, used, unused;
   char buf[128];
-  FSInfo info;
 
-  rootfs->info(info);
+  fs_usage(total, used, unused);
   str = F("Filesystem      Size       Used      Avail   Use%   Mounted on\r\n");
   snprintf_P(buf, sizeof (buf),
      PSTR("spiffs    %10s %10s %10s    %2i%%   /\r\n"),
-     fs_format_bytes(info.totalBytes).c_str(),
-     fs_format_bytes(info.usedBytes).c_str(),
-     fs_format_bytes(info.totalBytes - info.usedBytes).c_str(),
-     (int)(((float)info.usedBytes / (float)info.totalBytes) * 100)
+     fs_format_bytes(total).c_str(),
+     fs_format_bytes(used).c_str(),
+     fs_format_bytes(unused).c_str(),
+     (int)(((float)used / (float)total) * 100)
   );
   str += buf;
 }
@@ -100,7 +120,7 @@ void fs_mv(const String &from, const String &to) {
   if (!filesystem_is_mounted()) return;
 
   if (!rootfs->rename(from, to)) {
-    log_print(F("FS:   cannot mv file '%s'\r\n"), from.c_str());
+    log_print(F("FS:   cannot mv file '%s'"), from.c_str());
   }
 }
 
@@ -108,7 +128,7 @@ void fs_rm(const String &path) {
   if (!filesystem_is_mounted()) return;
 
   if (!rootfs->remove(path)) {
-    log_print(F("FS:   cannot remove file '%s'\r\n"), path.c_str());
+    log_print(F("FS:   cannot remove file '%s'"), path.c_str());
   }
 }
 
@@ -135,7 +155,7 @@ bool fs_init(void) {
   ota_size  = ota_end - ota_start;
 
   if (ota_size > size) {
-    log_print(F("FS:   using OTA flash for SPIFFS (%s vs %s)\r\n"),
+    log_print(F("FS:   using OTA flash for SPIFFS (%s vs %s)"),
       fs_format_bytes(ota_size).c_str(),
       fs_format_bytes(size).c_str()
     );
@@ -155,7 +175,7 @@ bool fs_init(void) {
 
     fs->info(info);
 
-    log_print(F("FS:   SPIFFS mounted (total=%s, used=%s)\r\n"),
+    log_print(F("FS:   SPIFFS mounted (total=%s, used=%s)"),
       fs_format_bytes(info.totalBytes).c_str(),
       fs_format_bytes(info.usedBytes).c_str()
     );
@@ -165,7 +185,7 @@ bool fs_init(void) {
     return (true);
   }
 
-  log_print(F("FS:   failed to mount SPIFFS\r\n"));
+  log_print(F("FS:   failed to mount SPIFFS"));
 
   fs->end();
   delete (fs);
@@ -176,13 +196,27 @@ bool fs_init(void) {
 bool fs_fini(void) {
   if (!rootfs) return (false);
 
-  log_print(F("FS:   unmounting SPIFFS\r\n"));
+  log_print(F("FS:   unmounting SPIFFS"));
 
   rootfs->end();
   delete (rootfs);
   rootfs = NULL;
 
   return (true);
+}
+
+void fs_poll(void) {
+  static uint32_t ms = millis();
+  int total, used, unused;
+
+  if (rootfs && ((millis() - ms) > 10 * 1000)) {
+    ms = millis();
+
+    // periodic FS check
+    fs_usage(total, used, unused);
+
+    filesystem_is_full = (unused == 0);
+  }
 }
 
 MODULE(fs)

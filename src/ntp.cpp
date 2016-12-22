@@ -54,7 +54,7 @@ int ntp_gettime(struct timespec *tp) {
   udp.begin(NTP_LOCAL_PORT);
 
   if (!WiFi.hostByName(p->server, ip)) {
-    log_print(F("NTP:  failed to resolve hostname '%s'\r\n"), p->server);
+    log_print(F("NTP:  failed to resolve hostname '%s'"), p->server);
     p->shutdown = true;
     return (-1);
   }
@@ -78,7 +78,7 @@ int ntp_gettime(struct timespec *tp) {
 
   // waiting for response timed out
   if (!response) {
-    log_print(F("NTP:  waiting for server response timed out\r\n"));
+    log_print(F("NTP:  waiting for server response timed out"));
     return (-1);
   }
 
@@ -124,7 +124,7 @@ int ntp_settime(void) {
   }
 
   system_time(time_buf, ntp.tv_sec);
-  log_print(F("NTP:  system time set to %s.%i%s\r\n"),
+  log_print(F("NTP:  system time set to %s.%i%s"),
     time_buf, (int)(ntp.tv_nsec / 1000000), diff_buf
   );
   clock_settime(CLOCK_REALTIME, &ntp);
@@ -144,14 +144,14 @@ bool ntp_init(void) {
   config_init();
 
   if (bootup && !config->ntp_enabled) {
-    log_print(F("NTP:  net time synchronization disabled in config\r\n"));
+    log_print(F("NTP:  net time synchronization disabled in config"));
 
     config_fini();
 
     return (false);
   }
 
-  log_print(F("NTP:  initializing NTP service\r\n"));
+  log_print(F("NTP:  initializing NTP service"));
 
   p = (NTP_PrivateData *)malloc(sizeof (NTP_PrivateData));
   memset(p, 0, sizeof (NTP_PrivateData));
@@ -167,7 +167,7 @@ bool ntp_init(void) {
 bool ntp_fini(void) {
   if (!p) return (false);
 
-  log_print(F("NTP:  disabling NTP service\r\n"));
+  log_print(F("NTP:  disabling NTP service"));
 
   // free private p->data
   free(p);
@@ -202,7 +202,7 @@ void ntp_poll(void) {
     }
 
     if (p->shutdown) {
-      log_print(F("NTP:  disabling NTP until next reboot\r\n"));
+      log_print(F("NTP:  disabling NTP until next reboot"));
 
       ntp_fini();
     }

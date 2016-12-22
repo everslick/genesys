@@ -66,6 +66,8 @@ public:
 
   bool Valid(void) { return (valid); }
 
+  static uint32_t DST(uint8_t year, uint8_t month, uint8_t hour, int8_t n, uint8_t dow);
+
 private:
 
   bool local;
@@ -78,12 +80,11 @@ private:
   uint8_t _minute;
   uint8_t _second;
 
-  bool     IsLeapYear(uint8_t year);
-  uint8_t  LeapDay(uint8_t year);
-  uint8_t  DayOfWeek(uint8_t year, uint8_t month, uint8_t day) const;
-  uint8_t  DaysInMonth(uint8_t year, uint8_t month);
-  uint8_t  NthDayOfWeek(uint8_t month, int8_t n, uint8_t dow);
-  uint32_t DST(uint8_t month, uint8_t hour, int8_t n, uint8_t dow);
+  static bool    IsLeapYear(uint8_t year);
+  static uint8_t LeapDay(uint8_t year);
+  static uint8_t DayOfWeek(uint8_t year, uint8_t month, uint8_t day);
+  static uint8_t DaysInMonth(uint8_t year, uint8_t month);
+  static uint8_t NthDayOfWeek(uint8_t year, uint8_t month, int8_t n, uint8_t dow);
 
 };
 

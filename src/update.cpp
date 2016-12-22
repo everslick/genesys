@@ -44,16 +44,16 @@ static int check_for_update(void) {
   result = p->upd->update(p->update_url, FIRMWARE);
 
   if (result == HTTP_UPDATE_FAILED) {
-      log_print(F("UPD:  %s\r\n"),
+      log_print(F("UPD:  %s"),
         p->upd->getLastErrorString().c_str()
       );
 
       // uncomment if failed updates should be retried next minute
       // return (-1);
   } else if (result == HTTP_UPDATE_NO_UPDATES) {
-    log_print(F("UPD:  no update available\r\n"));
+    log_print(F("UPD:  no update available"));
   } else if (result == HTTP_UPDATE_OK) {
-    log_print(F("UPD:  update successful\r\n"));
+    log_print(F("UPD:  update successful"));
   }
 
   return (0);
@@ -71,14 +71,14 @@ bool update_init(void) {
   config_init();
 
   if (bootup && !config->update_enabled) {
-    log_print(F("UPD:  http update disabled in config\r\n"));
+    log_print(F("UPD:  http update disabled in config"));
 
     config_fini();
 
     return (false);
   }
 
-  log_print(F("UPD:  initializing http update\r\n"));
+  log_print(F("UPD:  initializing http update"));
 
   p = (UPD_PrivateData *)malloc(sizeof (UPD_PrivateData));
   memset(p, 0, sizeof (UPD_PrivateData));
@@ -96,7 +96,7 @@ bool update_init(void) {
 bool update_fini(void) {
   if (!p) return (false);
 
-  log_print(F("UPD:  disabling http update\r\n"));
+  log_print(F("UPD:  disabling http update"));
 
   delete (p->upd);
 

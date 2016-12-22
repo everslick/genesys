@@ -21,6 +21,7 @@
 #define _CLI_H_
 
 #include "terminal.h"
+#include "lined.h"
 
 bool cli_init(void);
 bool cli_fini(void);
@@ -29,5 +30,8 @@ int cli_run_command(Terminal &tty, const String &line);
 
 int  cli_poll_task(int pid);
 void cli_kill_task(int pid);
+
+char *cli_hint_cb(const char *buf, int *color, int *bold);
+void  cli_completion_cb(lined_t *l, const char *buf);
 
 #endif // _CLI_H_

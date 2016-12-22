@@ -17,140 +17,47 @@
     Copyright (C) 2016 Clemens Kirchgatterer <clemens@1541.org>.
 */
 
-#include <ESP8266HTTPClient.h>
-
+#include "filesystem.h"
 #include "config.h"
 #include "system.h"
 #include "module.h"
+#include "clock.h"
 #include "mqtt.h"
 #include "log.h"
 #include "net.h"
-#include "rtc.h"
 #include "led.h"
+#include "rtc.h"
 
-#include "transport.h"
+#include "telemetry.h"
 
 #define BUFFER_SIZE 512
 
-struct TRANSPORT_PrivateData {
+#define SERVER_FINGERPRINT \
+  F("26 96 1C 2A 51 07 FD 15 80 96 93 AE F7 32 CE B9 0D 01 55 C4")
+
+struct TELEMETRY_PrivateData {
   // MQTT members
   MQTT *mqtt;
   bool mqtt_is_connected;
   char mqtt_topic[36];
 
-  // HTTP members
-  HTTPClient *http;
-  bool http_is_connected;
-  uint32_t http_ip;
-
   // time in seconds to wait before connecting again
   uint16_t reconnection_delay;
 
   // settings from config
-  uint8_t protocol;
   char url[64];
-  char user[16];
-  char pass[32];
+  char user[17];
+  char pass[33];
   uint32_t interval;
+
+  // ADE values
+  uint32_t measurements;
 
   // terminate module in poll()
   bool shutdown;
 };
 
-static TRANSPORT_PrivateData *p = NULL;
-
-// split str into 'proto://auth@host:port/path?query'
-
-static bool parse_url(const String &str,
-                            String &proto,
-                            String &auth,
-                            String &host,
-                            String &path,
-                            String &query,
-                            uint16_t &port) {
-  String url = str;
-  int index = -1;
-
-  // check for ':' (http: or https:)
-  index = url.indexOf(':');
-  if (index >= 0) {
-    proto = url.substring(0, index);
-    url.remove(0, (index + 3)); // remove http:// or https://
-  } else {
-    proto = "";
-  }
-
-  if (proto != F("http")) {
-    // unsupported protocol
-    return (false);
-  }
-
-  // check for '@' (user:pass)
-  index = url.indexOf('@');
-  if (index >= 0) {
-    auth = url.substring(0, index);
-    url.remove(0, index + 1); // remove auth part including '@'
-  } else {
-    auth = "";
-  }
-
-  // check for '/' or '?' (host name)
-  int ind1 = url.indexOf('/');
-  int ind2 = url.indexOf('?');
-
-  if ((ind1 < 0) && (ind2 < 0)) {
-    // neither '/' nor '?' was found
-    host = url;
-    url = "";
-  } else {
-    if ((ind1 >= 0) && (ind2 >= 0)) {
-      index = min(ind1, ind2);
-    } else {
-      index = max(ind1, ind2);
-    }
-    host = url.substring(0, index);
-    if (index == ind1) url.remove(0, index);     // remove host but not '/'
-    if (index == ind2) url.remove(0, index + 1); // remove host including '?'
-  }
-
-  if (host.length() == 0) {
-    // no hostname specified
-    return (false);
-  }
-
-  // check for ':' (port)
-  index = host.indexOf(':');
-  if (index >= 0) {
-    String name = host.substring(0, index);
-    host.remove(0, index + 1); // remove host including ':'
-    port = host.toInt();       // get port number
-    host = name;
-  } else {
-         if (proto == F("ftp"))   port = 21;
-    else if (proto == F("http"))  port = 80;
-    else if (proto == F("https")) port = 443;
-    else                          port = 0;
-  }
-
-  if (host.length() == 0) {
-    // no hostname specified
-    return (false);
-  }
-
-  // check for '?' (path)
-  index = url.indexOf('?');
-  if (index >= 0) {
-    path = url.substring(0, index);
-    url.remove(0, index + 1); // remove path including '?'
-
-    // what is left is the query string
-    query = url;
-  } else {
-    path = url;
-  }
-
-  return (true);
-}
+static TELEMETRY_PrivateData *p = NULL;
 
 static void receive_cb(char *mqtt_topic, byte *payload, unsigned int length) {
   char buf[length + 1];
@@ -159,7 +66,7 @@ static void receive_cb(char *mqtt_topic, byte *payload, unsigned int length) {
   for (int i=0; i<length; i++) *c++ = payload[i];
   *c = '\0';
 
-  log_print(F("MQTT: message [%s] %s\r\n"), mqtt_topic, buf);
+  log_print(F("MQTT: message [%s] %s"), mqtt_topic, buf);
 }
 
 static void publish(const String &t, const String &m) {
@@ -168,25 +75,28 @@ static void publish(const String &t, const String &m) {
   p->mqtt->publish(t.c_str(), m.c_str(), true); // true = retained
 
   if (m.length() + t.length() + 5 + 2 > MQTT_MAX_PACKET_SIZE) {
-    log_print(F("MQTT: packet of %i bytes is too big\r\n"), m.length());
+    log_print(F("MQTT: packet of %i bytes is too big"), m.length());
   }
 }
 
-static void publish_adc_value(void) {
+static void publish_protocol_mqtt(void) {
   String m, t = p->mqtt_topic;
+  struct timespec tm;
 
   if (!m.reserve(BUFFER_SIZE)) {
-    log_print(F("MQTT: failed to allocate memory\r\n"));
+    log_print(F("MQTT: failed to allocate memory"));
   }
 
-  t += F("values");
-  m += String(F("{ \"version\":1, ")) +
-    F("\"time\":")          + String(0) + F(", ")   +
-    F("\"msec\":")          + String(0) + F(", ")   +
-    F("\"device_id\":\"")   + String(device_id)             + F("\", ") +
-    F("\"device_name\":\"") + String(system_device_name())  + F("\", ");
+  clock_gettime(CLOCK_REALTIME, &tm);
 
-  m += String(F("\"adc\":"))  + String(0) + F(", ");
+  t += F("values");
+  m += F("{ \"version\":1, \"time\":");
+  m += String(tm.tv_sec) + F(", \"msec\":");
+  m += String(tm.tv_nsec / 1000000) + F(", ");
+  m += F("\"device_id\":\"");
+  m += String(device_id) + F("\", \"device_name\":\"");
+  m += String(system_device_name()) + F("\", ");
+  m += String(F("\"adc\":")) + String(analogRead(17)) + F(", ");
   m += String(F("\"temp\":")) + String(rtc_temp())    + F(" }");
 
   publish(t, m);
@@ -196,7 +106,7 @@ static void publish_poweron_info(void) {
   String m, t = p->mqtt_topic;
 
   if (!m.reserve(BUFFER_SIZE)) {
-    log_print(F("MQTT: failed to allocate memory\r\n"));
+    log_print(F("MQTT: failed to allocate memory"));
   }
 
   t += F("poweron");
@@ -216,10 +126,13 @@ static void publish_debug_info(void) {
   uint32_t stack = system_free_stack();
   uint32_t free = system_free_heap();
   uint32_t uptime = millis() / 1000;
+  int total, used, unused = -1;
   String m, t = p->mqtt_topic;
 
+  fs_usage(total, used, unused);
+
   if (!m.reserve(BUFFER_SIZE)) {
-    log_print(F("MQTT: failed to allocate memory\r\n"));
+    log_print(F("MQTT: failed to allocate memory"));
   }
 
   t += F("debug");
@@ -229,6 +142,7 @@ static void publish_debug_info(void) {
     F("\"uptime\":")        + String(uptime)               + F(", ")   +
     F("\"heap\":")          + String(free, DEC)            + F(", ")   +
     F("\"stack\":")         + String(stack, DEC)           + F(", ")   +
+    F("\"fs\":")            + String(unused, DEC)          + F(", ")   +
     F("\"rssi\":")          + String(net_rssi())           + F(" }");
 
   publish(t, m);
@@ -244,20 +158,23 @@ static void poll_mqtt_connection(void) {
       p->mqtt_is_connected = false;
       p->reconnection_delay = 15;
 
-      log_print(F("MQTT: disconnected from broker\r\n"));
+      log_print(F("MQTT: disconnected from broker"));
     } else {
       // try to connect every so often
       if (millis() - ms > p->reconnection_delay * 1000) {
+        bool connected = false;
         ms = millis();
 
-        if (p->mqtt->connect(device_id, p->user, p->pass)) {
+        connected = p->mqtt->connect(device_id, p->user, p->pass);
+
+        if (connected) {  
           String t = p->mqtt_topic;
           t += F("setup");
 
           p->mqtt_is_connected = true;
           p->mqtt->subscribe(t);
 
-          log_print(F("MQTT: connected to broker (%s)\r\n"), p->url);
+          log_print(F("MQTT: connected to broker (%s)"), p->url);
 
           publish_poweron_info();
         }
@@ -272,50 +189,50 @@ static void poll_publish(void) {
   if (millis() - ms > p->interval * 1000) {
     ms = millis();
 
-    publish_adc_value();
+    publish_protocol_mqtt();
     publish_debug_info();
   }
 }
 
-bool transport_connected(void) {
+bool telemetry_connected(void) {
   if (!p) return (false);
 
   return (p->mqtt && p->mqtt_is_connected);
 }
 
-int transport_state(void) {
+int telemetry_state(void) {
   if (p) return (MODULE_STATE_ACTIVE);
 
   return (MODULE_STATE_INACTIVE);
 }
 
-bool transport_init(void) {
+bool telemetry_init(void) {
   String str;
 
   if (p) return (false);
 
   config_init();
 
-  if (bootup && !config->transport_enabled) {
-    log_print(F("TRNS: transport disabled in config\r\n"));
+  if (bootup && !config->telemetry_enabled) {
+    log_print(F("TELE: telemetry disabled in config"));
 
     config_fini();
 
     return (false);
   }
 
-  log_print(F("TRNS: initializing transport\r\n"));
+  log_print(F("TELE: initializing telemetry (MQTT)"));
 
-  p = (TRANSPORT_PrivateData *)malloc(sizeof (TRANSPORT_PrivateData));
-  memset(p, 0, sizeof (TRANSPORT_PrivateData));
+  p = (TELEMETRY_PrivateData *)malloc(sizeof (TELEMETRY_PrivateData));
+  memset(p, 0, sizeof (TELEMETRY_PrivateData));
 
-  p->interval = config->transport_interval;
+  p->interval = config->telemetry_interval;
 
-  config_get(F("transport_url"),  str);
+  config_get(F("telemetry_url"),  str);
   strncpy(p->url,  str.c_str(), sizeof (p->url));
-  config_get(F("transport_user"), str);
+  config_get(F("telemetry_user"), str);
   strncpy(p->user, str.c_str(), sizeof (p->user));
-  config_get(F("transport_pass"), str);
+  config_get(F("telemetry_pass"), str);
   strncpy(p->pass, str.c_str(), sizeof (p->pass));
  
   config_fini();
@@ -323,8 +240,7 @@ bool transport_init(void) {
   // initially we try to connect fast
   p->reconnection_delay = 5;
 
-  // MQTT protocol
-  p->mqtt = new MQTT(p->url);
+  p->mqtt = new MQTT(p->url, MQTT_PORT, SERVER_FINGERPRINT);
   p->mqtt->ReceiveCallback(receive_cb);
 
   // format the MQTT topic string
@@ -335,10 +251,10 @@ bool transport_init(void) {
   return (true);
 }
 
-bool transport_fini(void) {
+bool telemetry_fini(void) {
   if (!p) return (false);
 
-  log_print(F("TRNS: closing transport\r\n"));
+  log_print(F("TELE: closing telemetry"));
 
   if (p->mqtt) {
     // MQTT based protocols
@@ -362,18 +278,18 @@ bool transport_fini(void) {
   return (true);
 }
 
-void transport_poll(void) {
+void telemetry_poll(void) {
   if (p && net_connected()) {
     poll_mqtt_connection();
 
     poll_publish();
 
     if (p->shutdown) {
-      log_print(F("TRNS: disabling transport until next reboot\r\n"));
+      log_print(F("TELE: disabling telemetry until next reboot"));
 
-      transport_fini();
+      telemetry_fini();
     }
   }
 }
 
-MODULE(transport)
+MODULE(telemetry)

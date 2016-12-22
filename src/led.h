@@ -27,10 +27,11 @@
 
 // yellow led blink intervalls
 #define NET_LED_BLINK_PERIOD       150
-#define TRANSPORT_LED_BLINK_PERIOD 750
+#define TELEMETRY_LED_BLINK_PERIOD 750
+#define ERROR_LED_BLINK_PERIOD     300
 
 // green led pulse and pause width
-#ifdef DEBUG
+#ifdef ALPHA
 #define GRN_LED_OFF_MS 1250
 #else
 #define GRN_LED_OFF_MS 1750

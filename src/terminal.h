@@ -119,7 +119,7 @@ public:
   void CursorHide(void);
   void CursorShow(void);
 
-  void Color(int attr, int fg, int bg);
+  void Color(int fg, int bg = TERM_DEFAULT, int attr = TERM_RESET);
 
   virtual void Size(int cols, int rows);
 

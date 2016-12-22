@@ -73,13 +73,16 @@ uint16_t system_load_history_entries(void);
 char *system_uptime(char buf[]);
 char *system_time(char buf[], time_t time = INT_MAX);
 
+time_t system_utc(void);
+time_t system_localtime(void);
+
 void system_device_info(String &str);
 void system_version_info(String &str);
 void system_build_info(String &str);
 void system_sys_info(String &str);
-void system_load_info(String &str);
 void system_flash_info(String &str);
 void system_net_info(String &str);
+void system_ade_info(String &str);
 void system_ap_info(String &str);
 void system_wifi_info(String &str);
 

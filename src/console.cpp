@@ -17,6 +17,7 @@
     Copyright (C) 2016 Clemens Kirchgatterer <clemens@1541.org>.
 */
 
+#include "module.h"
 #include "shell.h"
 #include "log.h"
 
@@ -26,17 +27,28 @@ static bool active  = false;
 static Shell *shell = NULL;
 
 static void logout(void) {
-  if (shell) shell->Kill();
+#ifndef RELEASE
+  if (shell) {
+    shell->Kill();
 
-  delete (shell);
-  shell = NULL;
+    delete (shell);
+    shell = NULL;
 
-  console_print(F("\r\n"));
+    console_print(F("\r\n"));
 
-  log_print(F("CONS: leaving shell ...\r\n"));
+    log_print(F("CONS: leaving shell ..."));
+  }
+#endif
+}
+
+int console_state(void) {
+  if (active) return (MODULE_STATE_ACTIVE);
+
+  return (MODULE_STATE_INACTIVE);
 }
 
 bool console_init(void) {
+#ifndef RELEASE
   if (active) return (false);
 
   Serial.begin(115200);
@@ -46,49 +58,72 @@ bool console_init(void) {
   active = true;
 
   return (true);
+#else
+  return (false);
+#endif
 }
 
 bool console_fini(void) {
+#ifndef RELEASE
   if (!active) return (false);
-
-  Serial.end();
 
   delete (shell);
   shell = NULL;
 
+  Serial.end();
+
   active = false;
 
   return (true);
+#else
+  return (false);
+#endif
 }
 
 void console_poll(void) {
+#ifndef RELEASE
   if (shell) {
     if (!shell->Poll()) logout();
   } else {
     int w, h, c = Serial.read();
 
     if ((c == '\n') || (c == '\r')) {
-      log_print(F("CONS: starting shell (CTRL-D to exit) ...\r\n"));
+      log_print(F("CONS: starting shell (CTRL-D to exit) ..."));
 
       shell = new Shell(Serial, true); // true = login
     }
   }
+#endif
 }
 
 bool console_print(const char *str, uint16_t len) {
+#ifndef RELEASE
   if (shell) return (false);
 
   return (Serial.write(str, len));
+#else
+  return (false);
+#endif
 }
 
 bool console_print(const String &str) {
-  console_print(str.c_str(), str.length());
+#ifndef RELEASE
+  return (console_print(str.c_str(), str.length()));
+#else
+  return (false);
+#endif
 }
 
 void console_kill_shell(void) {
+#ifndef RELEASE
   logout();
+#endif
 }
 
 void console_dump_debug_info(void) {
+#ifndef RELEASE
   if (shell) shell->Run(F("info all"));
+#endif
 }
+
+MODULE(console)

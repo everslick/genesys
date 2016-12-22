@@ -20,10 +20,8 @@
 #ifndef _CONFIG_H_
 #define _CONFIG_H_
 
-#include <Arduino.h>
-
 struct Config {
-  char     magic[8];           // magic string
+  char     magic[9];           // magic string
   uint8_t  version;            // config version -> increment if struct changes
 
   // user management
@@ -57,12 +55,12 @@ struct Config {
   char     ntp_server[33];     // NTP server name/ip
   uint32_t ntp_interval;       // NTP synchronization interval in minutes
 
-  // transport
-  uint8_t  transport_enabled;  // start network transport
-  char     transport_url[65];  // mqtt broker/emon server URL
-  char     transport_user[17]; // mqtt account user name
-  char     transport_pass[33]; // mqtt account password
-  uint32_t transport_interval; // publish interval in seconds
+  // telemetry
+  uint8_t  telemetry_enabled;  // start network telemetry
+  char     telemetry_url[65];  // mqtt broker/emon server URL
+  char     telemetry_user[17]; // mqtt account user name
+  char     telemetry_pass[33]; // mqtt account password
+  uint32_t telemetry_interval; // publish interval in seconds
 
   // http update
   uint8_t  update_enabled;     // poll server for updates
@@ -74,6 +72,12 @@ struct Config {
   uint32_t storage_interval;   // poll interval in seconds
   uint32_t storage_mask;       // bitmask of things to store
 
+  // debug logs
+  uint8_t  logger_enabled;     // start logger
+  uint8_t  logger_channels;    // bitmask for different log channels
+  uint32_t logger_server;      // ip of network log server
+  uint32_t logger_port;        // port of network log server
+
   // general switches
   uint8_t  mdns_enabled;       // start mDNS responder
   uint8_t  webserver_enabled;  // start http service
@@ -81,6 +85,7 @@ struct Config {
   uint8_t  telnet_enabled;     // start start telnet server
   uint8_t  gpio_enabled;       // enable leds and buttons
   uint8_t  rtc_enabled;        // enable RTC module
+  uint8_t  ade_enabled;        // enable ADE7758 module 
 
   // CPU speed
   uint8_t  cpu_turbo;          // enable 160MHz clock
@@ -94,8 +99,11 @@ bool config_clr(const String &name);
 int config_state(void);
 bool config_init(void);
 bool config_fini(void);
+void config_poll(void);
+
 void config_reset(void);
 void config_write(void);
+
 void config_import(String &str);
 void config_export(String &str);
 

@@ -28,11 +28,13 @@ extern "C" {
 #include "buildinfo.h"
 
 #include "websocket.h"
+#include "datetime.h"
 #include "config.h"
 #include "clock.h"
 #include "xxtea.h"
 #include "main.h"
 #include "load.h"
+#include "i18n.h"
 #include "util.h"
 #include "net.h"
 #include "log.h"
@@ -42,15 +44,11 @@ extern "C" {
 #define LOAD_HISTORY_LENGTH      30
 #define LOAD_HISTORY_INTERVAL   500
 #define NET_TRAFFIC_FULL      30000
-#define NO_LOAD_IDLE_COUNT       33
+#define NO_LOAD_IDLE_COUNT       40
 
 extern "C" cont_t g_cont;
 
-extern "C" {
-  void esp_yield();
-}
-
-char device_id[16];
+char device_id[14];
 char device_name[16];
 
 bool bootup = true;
@@ -58,34 +56,88 @@ bool bootup = true;
 uint32_t mem_free, idle_count, traffic_count;
 uint32_t last_mem_free, last_idle_count, last_traffic_count;
 
-#ifdef DEBUG
+#ifdef ALPHA
 static uint8_t cpu_load, mem_usage, net_traffic;
 
 static SysLoad load_history[LOAD_HISTORY_LENGTH];
 static uint16_t load_history_index = 0;
 static uint16_t load_history_count = 0;
-
-static uint32_t no_load_mem_free;
 #endif
 
-static uint16_t reboot_pending = 0;
+static uint32_t no_load_mem_free = 0;
+static uint16_t reboot_pending   = 0;
+
+static bool dst = false;
 
 static void out_of_memory(void) {
-  log_print(F("SYS:  out of memory\r\n"));
+  log_print(F("SYS:  out of memory"));
+}
+
+static bool dst_is_active(void) {
+  int time = clock_time();
+  DateTime now(time);
+
+  // calculate DST start and end
+  uint32_t dst_start = DateTime::DST(now.Year(), I18N_DST_START);
+  uint32_t dst_end   = DateTime::DST(now.Year(), I18N_DST_END);
+
+  // check if we are in daylight saving time
+  bool ret = ((time >= dst_start) && (time < dst_end));
+
+  if (ret) log_print(F("DST is active"));
+
+  return (ret);
 }
 
 static void reboot_poll(void) {
   if (reboot_pending) {
     if (reboot_pending == 1) {
       ESP.restart();
-    } else {
-      reboot_pending--;
+    } else if (reboot_pending == 9000) {
+      main_fini();
+    } else if (reboot_pending == 4000) {
+      log_print(F("SYS:  rebooting ..."));
+    }
+
+    reboot_pending--;
+  }
+}
+
+static void time_poll(void) {
+  static int last_time_hour = -1;
+  static uint32_t ms = millis();
+
+  if ((millis() - ms) > 500) {
+    int hour = (clock_time() % 86400) / 3600; // 86400 secs per day
+
+    ms = millis();
+
+    if (hour != last_time_hour) {
+      dst = dst_is_active();
+
+      // remember current hour for next round
+      last_time_hour = hour;
     }
   }
 }
 
+static void first_poll(void) {
+  static bool already_polled = false;
+
+  if (!already_polled) {
+    already_polled = true;
+
+    log_print(F("SYS:  CPU is running on %iMhz"),
+      (system_turbo_get()) ? 160 : 80
+    );
+    log_print(F("SYS:  %i bytes of total ram, %i bytes free"),
+      no_load_mem_free, system_free_heap()
+    );
+  }
+}
+
 static void load_poll(void) {
-#ifdef DEBUG
+#ifdef ALPHA
   static uint32_t ms = millis();
   SysLoad load;
 
@@ -124,27 +176,13 @@ static void load_poll(void) {
 }
 
 bool system_init(void) {
+  no_load_mem_free = system_free_heap();
+
   String id = net_mac();
 
   id.replace(":", "");
 
-  log_color_text(COL_YELLOW);
-  log_print(LINE_MEDIUM);
-  log_print(
-    F("  *** %s V%s Firmware V%s%s***\r\n"),
-    system_hw_device().c_str(),  system_hw_version().c_str(),
-    system_fw_version().c_str(), system_fw_build().c_str()
-  );
-  log_print(LINE_MEDIUM);
-  log_color_text(COL_DEFAULT);
-
-#ifdef DEBUG
-  register_out_of_memory_cb(out_of_memory);
-
-  no_load_mem_free = system_free_heap();
-
-  log_print(F("SYS:  %i bytes available\r\n"), no_load_mem_free);
-#endif
+  dst = dst_is_active();
 
   snprintf(device_id, sizeof (device_id), "%s", id.c_str());
   xxtea_init(device_id, 0xdeadbeef);
@@ -154,7 +192,11 @@ bool system_init(void) {
   strcpy(device_name, config->device_name);
   system_turbo_set(config->cpu_turbo);
 
-  config_fini();
+  register_out_of_memory_cb(out_of_memory);
+
+  last_mem_free      = mem_free      = 100000;
+  last_idle_count    = idle_count    = 0;
+  last_traffic_count = traffic_count = 0;
 
   return (true);
 }
@@ -164,13 +206,15 @@ bool system_fini(void) {
 }
 
 void system_poll(void) {
+  first_poll();
+  time_poll();
   load_poll();
   reboot_poll();
 }
 
 void system_yield(void) {
-#ifdef DEBUG
-  idle_count++;
+#ifdef ALPHA
+  //idle_count++;
 #endif
 
   yield();
@@ -189,14 +233,18 @@ static uint8_t get_hw_id(void) {
 
 const String system_device_name(void) {
   const char *name = device_name;
+  char buf[32];
 
-  if (!strlen(name)) name = device_id;
+  if (!strlen(name)) {
+    snprintf_P(buf, sizeof (buf), PSTR("ESP8266-%06x"), ESP.getChipId());
+    name = buf;
+  }
 
   return (name);
 }
 
 const String system_hw_device(void) {
-  if (get_hw_id() == 0) return (F("GENESYS"));
+  if (get_hw_id() == 0) return (F("ESP8266"));
 
   return (F("UNKNOWN"));
 }
@@ -215,15 +263,18 @@ const String system_fw_version(void) {
 }
 
 const String system_fw_build(void) {
-#ifdef DEBUG
-  return (F("  (debug)  "));
-#else
-  return (F(" (release) "));
+#ifdef BETA
+  return (F("(beta)"));
 #endif
+#ifdef ALPHA
+  return (F("(alpha)"));
+#endif
+
+  return (F("(release)"));
 }
 
 uint8_t system_cpu_load(void) {
-#ifdef DEBUG
+#ifdef ALPHA
   return (cpu_load);
 #else
   return (0);
@@ -235,13 +286,11 @@ bool system_turbo_get(void) {
 }
 
 bool system_turbo_set(bool on) {
-  log_print(F("SYS:  switching to %iMhz CPU clock\r\n"), (on) ? 160 : 80);
-
   return (system_update_cpu_freq((on) ? 160 : 80));
 }
 
 uint8_t system_mem_usage(void) {
-#ifdef DEBUG
+#ifdef ALPHA
   return (mem_usage);
 #else
   return (0);
@@ -249,7 +298,7 @@ uint8_t system_mem_usage(void) {
 }
 
 uint8_t system_net_traffic(void) {
-#ifdef DEBUG
+#ifdef ALPHA
   return (net_traffic);
 #else
   return (0);
@@ -257,7 +306,7 @@ uint8_t system_net_traffic(void) {
 }
 
 SysLoad &system_load_history(uint16_t index) {
-#ifdef DEBUG
+#ifdef ALPHA
   int start = load_history_index - load_history_count;
   int idx = modulo(start + index, load_history_count);
 
@@ -270,7 +319,7 @@ SysLoad &system_load_history(uint16_t index) {
 }
 
 uint16_t system_load_history_entries(void) {
-#ifdef DEBUG
+#ifdef ALPHA
   return (load_history_count);
 #else
   return (0);
@@ -337,6 +386,22 @@ char *system_time(char buf[], time_t time) {
   return (buf);
 }
 
+time_t system_utc(void) {
+  return (clock_time());
+}
+
+time_t system_localtime(void) {
+  int time = clock_time();
+
+  // add time zone offset
+  time += I18N_TZ_OFFSET * 60;
+
+  // add daylight saving offset
+  time += (dst) ? 3600 : 0;
+
+  return (time);
+}
+
 void system_device_info(String &str) {
   str += F("DEVICE\r\n\r\n");
   str += F("    Hardware: ");
@@ -357,7 +422,8 @@ void system_version_info(String &str) {
   str += F("    Hardware: ");
   str += system_hw_version()                     + F("\r\n");
   str += F("    Firmware: ");
-  str += system_fw_version() + system_fw_build() + F("\r\n");
+  str += system_fw_version()                     + F(" ");
+  str += system_fw_build()                       + F("\r\n");
   str += F("  Bootloader: ");
   str += String(ESP.getBootVersion())            + F("\r\n");
   str += F("      Source: ");
@@ -400,25 +466,6 @@ void system_sys_info(String &str) {
   str += stack_guard                        + F("\r\n");
   str += F("   CPU Clock: ");
   str += String(ESP.getCpuFreqMHz())        + F("\r\n");
-}
-
-void system_load_info(String &str) {
-  str += F("LOAD\r\n\r\n");
-  str += F("    CPU Load: ");
-  str += String(system_cpu_load());
-  str += F("% (");
-  str += system_main_loops();
-  str += F(" loops/s)\r\n");
-  str += F("   Mem Usage: ");
-  str += String(system_mem_usage());
-  str += F("% (");
-  str += system_mem_free();
-  str += F(" bytes free)\r\n");
-  str += F(" Net Traffic: ");
-  str += String(system_net_traffic());
-  str += F("% (");
-  str += system_net_xfer();
-  str += F(" bytes/s)\r\n");
 }
 
 void system_flash_info(String &str) {
@@ -476,23 +523,37 @@ void system_ap_info(String &str) {
 
 void system_wifi_info(String &str) {
   const String &wifi_list_str = net_list_wifi();
-  int n=0;
+  String ssid, rssi, crypt;
+  int n = 0, parse = 0;
 
   if (wifi_list_str.length() != 0) {
     str += F("WIFI NETWORKS\r\n\r\n");
   }
 
   for (char c : wifi_list_str) {
-    if (c == '{') {
-        str += F("        AP");
-        str += (n<10) ? "0" : "";
-        str += String(n++) + ':';
-    } else if ((c == ',') || (c == '"') || (c == '}')) {
-      // do nothing
-    } else if (c == ':') {
-      str += '=';
+    if (c == '\t') {
+      parse = 1;
+    } else if (c == '\b') {
+      parse = 2;
+    } else if (c == '\r') {
+      parse = 0;
+
+      str += F("          ");
+      str += (n<10) ? F(" ") : F("");
+      str += String(n++) + F(": ");
+      str += ssid  + F(" ");
+      str += rssi  + F("% ");
+      str += crypt + F("\r\n");
+
+      ssid = rssi = crypt = "";
     } else {
-      str += c;
+      if (parse == 0) {
+        ssid += c;
+      } else if (parse == 1) {
+        rssi += c;
+      } else {
+        crypt += c;
+      }
     }
   }
 }
@@ -500,9 +561,7 @@ void system_wifi_info(String &str) {
 void system_reboot(void) {
   websocket_broadcast_message(F("reboot"));
 
-  log_print(F("SYS:  shutting down ...\r\n"));
-  main_fini();
-  log_print(F("SYS:  rebooting ...\r\n"));
+  log_print(F("SYS:  shutting down ..."));
 
-  reboot_pending = 2000;
+  reboot_pending = 10000;
 }

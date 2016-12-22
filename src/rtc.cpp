@@ -79,7 +79,7 @@ int rtc_settime(void) {
   }
 
   system_time(time_buf, rtc.tv_sec);
-  log_print(F("RTC:  system time set to %s.%i%s\r\n"),
+  log_print(F("RTC:  system time set to %s.%i%s"),
     time_buf, (int)(rtc.tv_nsec / 1000000), diff_buf
   );
   clock_settime(CLOCK_REALTIME, &rtc);
@@ -100,7 +100,7 @@ bool rtc_init(void) {
 
   if (bootup) {
     if (!config->rtc_enabled) {
-      log_print(F("RTC:  module disabled in config\r\n"));
+      log_print(F("RTC:  module disabled in config"));
 
       config_fini();
 
@@ -111,7 +111,7 @@ bool rtc_init(void) {
   config_fini();
 
   if (!ds3231_init()) {
-    log_print(F("RTC:  no DS3231 chip found\r\n"));
+    log_print(F("RTC:  no DS3231 chip found"));
 
     return (false);
   }
@@ -125,7 +125,7 @@ bool rtc_init(void) {
 bool rtc_fini(void) {
   if (!p) return (false);
 
-  log_print(F("RTC:  disabling real time clock\r\n"));
+  log_print(F("RTC:  disabling real time clock"));
 
   // free private p->data
   free(p);
@@ -154,12 +154,12 @@ void rtc_poll(void) {
         ds3231_get(get);
 
         if (get == set) {
-          log_print(F("RTC:  clock set to %s %s\r\n"),
+          log_print(F("RTC:  clock set to %s %s"),
             set.date_str().c_str(), set.time_str().c_str()
           );
         } else {
           String str = retry ? F("retrying ...") : F("giving up!");
-          log_print(F("RTC:  error (set=%s, get=%s), %s\r\n"),
+          log_print(F("RTC:  error (set=%s, get=%s), %s"),
             set.time_str().c_str(), get.time_str().c_str(), str.c_str()
           );
         }
@@ -181,7 +181,7 @@ int rtc_set(struct timespec *tp) {
 }
 
 float rtc_temp(void) {
-  if (!p) return (0.0);
+  if (!p) return (-1000.0);
 
   return (ds3231_temperature());
 }
