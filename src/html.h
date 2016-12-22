@@ -36,8 +36,6 @@ enum {
 };
 
 extern const char *html_page_style_css;
-extern const char *html_page_reset_css;
-extern const char *html_page_menu_css;
 
 extern const char *html_page_common_js;
 extern const char *html_page_config_js;

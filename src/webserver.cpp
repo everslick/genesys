@@ -750,14 +750,6 @@ static void handle_clock_cb(void) {
   send_page_footer();
 }
 
-static void handle_menu_css_cb(void) {
-  send_page_P(html_page_menu_css, text_css_str);
-}
-
-static void handle_reset_css_cb(void) {
-  send_page_P(html_page_reset_css, text_css_str);
-}
-
 static void handle_style_css_cb(void) {
   send_page_P(html_page_style_css, text_css_str);
 }
@@ -899,8 +891,6 @@ bool webserver_init(void) {
   p->webserver->on(F("/view.png"),  HTTP_GET,  handle_viewicon_cb);
   p->webserver->on(F("/del.png"),   HTTP_GET,  handle_delicon_cb);
 
-  p->webserver->on(F("/menu.css"),  HTTP_GET,  handle_menu_css_cb);
-  p->webserver->on(F("/reset.css"), HTTP_GET,  handle_reset_css_cb);
   p->webserver->on(F("/style.css"), HTTP_GET,  handle_style_css_cb);
   p->webserver->on(F("/config.js"), HTTP_GET,  handle_config_js_cb);
   p->webserver->on(F("/common.js"), HTTP_GET,  handle_common_js_cb);
