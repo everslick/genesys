@@ -76,7 +76,7 @@ static bool check_magic(uint16_t addr, const char *str, uint16_t len) {
 static bool write_magic(uint16_t addr, const char *str, uint16_t len) {
   char zero[EEPROM_PAGE / 2];
 
-  log_print("PROM: formatting AT24C32 eeprom\r\n");
+  log_print("PROM: formatting AT24C32 eeprom");
 
   // clear whole EEPROM
   memset(zero, 0, sizeof (zero));
