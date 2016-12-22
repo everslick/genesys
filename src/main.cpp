@@ -60,8 +60,9 @@ static void button_cb(uint16_t event) {
   } else if (event == BUTTON_EVENT_HOLD_1) {
     log_print(F("GPIO: preparing for factory reset ..."));
     reset_in_progress = false;
-    led_pulse(LED_GRN, 50, 50);
-  } else if (event == BUTTON_EVENT_HOLD_2) {
+    led_pulse(LED_GRN, 50);
+    short_press = false;
+  } else if ((event >= BUTTON_EVENT_HOLD_2) && (event <= BUTTON_EVENT_HOLD_3)) {
     log_progress("GPIO: factory reset in ", " seconds", 5 - event);
   } else if (event == BUTTON_EVENT_HOLD_4) {
     log_print(F("GPIO: initiating factory reset ...          "));

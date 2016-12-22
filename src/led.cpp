@@ -28,7 +28,7 @@ static void red_led_poll(void) {
   static bool led = false;
 
   if (!led && fs_full()) {
-    led_pulse(LED_RED, ERROR_LED_BLINK_PERIOD, ERROR_LED_BLINK_PERIOD);
+    led_pulse(LED_RED, ERROR_LED_BLINK_PERIOD);
     led = true;
   }
 
@@ -58,38 +58,35 @@ static void grn_led_poll(void) {
 }
 
 static void yel_led_poll(void) {
+  static bool telemetry_is_enabled   = telemetry_enabled();
+  static bool       net_is_enabled   = net_enabled();
   static bool telemetry_is_connected = true;
   static bool       net_is_connected = true;
-  static bool       net_is_enabled   = true;
 
-  if (net_is_enabled && !net_enabled()) {
-    net_is_enabled = false;
+  // WiFi
 
-    led_off(LED_YEL);
+  if (net_is_enabled != net_enabled()) {
+    if (net_is_enabled && !net_enabled()) {
+      net_is_enabled = false;
 
-    return;
-  }
+      led_off(LED_YEL);
 
-  if (!net_is_enabled && net_enabled()) {
-    net_is_enabled = true;
+      return;
+    }
 
-    led_pulse(LED_YEL, NET_LED_BLINK_PERIOD, NET_LED_BLINK_PERIOD);
+    if (!net_is_enabled && net_enabled()) {
+      net_is_enabled = true;
 
-    return;
+      led_pulse(LED_YEL, NET_LED_BLINK_PERIOD);
+
+      return;
+    }
   }
 
   if (!net_is_enabled) return;
 
-  if (telemetry_is_connected && !telemetry_connected()) {
-    telemetry_is_connected = false;
-
-    led_pulse(LED_YEL, TELEMETRY_LED_BLINK_PERIOD, TELEMETRY_LED_BLINK_PERIOD);
-
-    return;
-  }
-
-  if (!telemetry_is_connected && telemetry_connected()) {
-    telemetry_is_connected = true;
+  if (!net_is_connected && net_connected()) {
+    net_is_connected = true;
 
     led_off(LED_YEL);
 
@@ -99,15 +96,45 @@ static void yel_led_poll(void) {
   if (net_is_connected && !net_connected()) {
     net_is_connected = false;
 
-    led_pulse(LED_YEL, NET_LED_BLINK_PERIOD, NET_LED_BLINK_PERIOD);
+    led_pulse(LED_YEL, NET_LED_BLINK_PERIOD);
 
     return;
   }
 
-  if (!net_is_connected && net_connected()) {
-    net_is_connected = true;
+  // MQTT
+
+  if (telemetry_is_enabled != telemetry_enabled()) {
+    if (telemetry_is_enabled && !telemetry_enabled()) {
+      telemetry_is_enabled = false;
+
+      led_off(LED_YEL);
+
+      return;
+    }
+
+    if (!telemetry_is_enabled && telemetry_enabled()) {
+      telemetry_is_enabled = true;
+
+      led_pulse(LED_YEL, TELEMETRY_LED_BLINK_PERIOD);
+
+      return;
+    }
+  }
+
+  if (!telemetry_is_enabled) return;
+
+  if (!telemetry_is_connected && telemetry_connected()) {
+    telemetry_is_connected = true;
 
     led_off(LED_YEL);
+
+    return;
+  }
+
+  if (telemetry_is_connected && !telemetry_connected()) {
+    telemetry_is_connected = false;
+
+    led_pulse(LED_YEL, TELEMETRY_LED_BLINK_PERIOD);
 
     return;
   }
@@ -148,6 +175,8 @@ void led_toggle(int led) {
 }
 
 void led_pulse(int led, uint16_t on, uint16_t off) {
+  if (off == 0) off = on;
+
   gpio_led_pulse(led, on, off);
 }
 

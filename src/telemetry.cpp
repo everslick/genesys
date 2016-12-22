@@ -79,7 +79,7 @@ static void publish(const String &t, const String &m) {
   }
 }
 
-static void publish_protocol_mqtt(void) {
+static void publish_values(void) {
   String m, t = p->mqtt_topic;
   struct timespec tm;
 
@@ -102,7 +102,7 @@ static void publish_protocol_mqtt(void) {
   publish(t, m);
 }
 
-static void publish_poweron_info(void) {
+static void publish_poweron(void) {
   String m, t = p->mqtt_topic;
 
   if (!m.reserve(BUFFER_SIZE)) {
@@ -120,9 +120,7 @@ static void publish_poweron_info(void) {
   publish(t, m);
 }
 
-static void publish_debug_info(void) {
-  if ((!p->mqtt) || (!p->mqtt_is_connected)) return;
-
+static void publish_debug(void) {
   uint32_t stack = system_free_stack();
   uint32_t free = system_free_heap();
   uint32_t uptime = millis() / 1000;
@@ -148,7 +146,7 @@ static void publish_debug_info(void) {
   publish(t, m);
 }
 
-static void poll_mqtt_connection(void) {
+static void poll_connection(void) {
   static uint32_t ms = millis();
 
   if (p->mqtt && (!p->mqtt->loop())) {
@@ -176,7 +174,7 @@ static void poll_mqtt_connection(void) {
 
           log_print(F("MQTT: connected to broker (%s)"), p->url);
 
-          publish_poweron_info();
+          publish_poweron();
         }
       }
     }
@@ -189,8 +187,10 @@ static void poll_publish(void) {
   if (millis() - ms > p->interval * 1000) {
     ms = millis();
 
-    publish_protocol_mqtt();
-    publish_debug_info();
+    if (p->mqtt && p->mqtt_is_connected) {
+      publish_values();
+      publish_debug();
+    }
   }
 }
 
@@ -198,6 +198,12 @@ bool telemetry_connected(void) {
   if (!p) return (false);
 
   return (p->mqtt && p->mqtt_is_connected);
+}
+
+bool telemetry_enabled(void) {
+  if (!p) return (false);
+
+  return (true);
 }
 
 int telemetry_state(void) {
@@ -280,8 +286,7 @@ bool telemetry_fini(void) {
 
 void telemetry_poll(void) {
   if (p && net_connected()) {
-    poll_mqtt_connection();
-
+    poll_connection();
     poll_publish();
 
     if (p->shutdown) {

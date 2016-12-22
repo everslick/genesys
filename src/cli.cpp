@@ -920,7 +920,7 @@ int cli_run_command(Terminal &term, const String &line) {
   } else if (cmd == F("flash")) {
     led_flash(arg.toInt(), 200);
   } else if (cmd == F("pulse")) {
-    led_pulse(arg.toInt(), 500, 500);
+    led_pulse(arg.toInt(), 300);
   } else if (cmd == F("off")) {
     led_off(arg.toInt());
   } else if (cmd == F("on")) {

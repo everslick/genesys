@@ -26,5 +26,6 @@ bool telemetry_fini(void);
 void telemetry_poll(void);
 
 bool telemetry_connected(void);
+bool telemetry_enabled(void);
 
 #endif // _TELEMETRY_H_

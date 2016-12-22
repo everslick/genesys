@@ -45,7 +45,7 @@ void led_poll(void);
 void led_on(int led);
 void led_off(int led);
 void led_toggle(int led);
-void led_pulse(int led, uint16_t on, uint16_t off);
+void led_pulse(int led, uint16_t on, uint16_t off = 0);
 void led_flash(int led, uint16_t ms = 100);
 
 #endif // _LED_H_
