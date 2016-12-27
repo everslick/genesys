@@ -69,9 +69,9 @@ following content:
 ```
 I18N_COUNTRY_CODE          = DE
 
-DEFAULT_LOG_CHANNELS       = 7
-DEFAULT_LOG_SERVER         = 10.0.0.150
-DEFAULT_LOG_PORT           = 49152
+DEFAULT_LOGGER_CHANNELS    = 7
+DEFAULT_LOGGER_SERVER      = 10.0.0.150
+DEFAULT_LOGGER_PORT        = 49152
 
 DEFAULT_USER_NAME          = genesys
 DEFAULT_USER_PASS          = genesys
