@@ -180,7 +180,7 @@ intervals, or NTP servers.
 SYS
 ---
 The [SYS] page gives insights to the resources currently consumed (heap, cpu, net)
-and iallows individual modules to be loaded and unloaded at runtime.
+and allows individual modules to be loaded and unloaded at runtime.
 
 ![sys](https://cloud.githubusercontent.com/assets/1909551/21504704/91656132-cc61-11e6-90bf-2968828e5a03.png)
 
@@ -233,6 +233,11 @@ Some unix like commands are implemented already.
 
 CLI
 ---
+The command line interface supports rudimentary TAB completion (based on the
+first letter typed) and command line interface hints. Hints are especially useful
+to give instant reminders on the syntax of a specific command.
+
+```
 available commands are:
 	init <m>     ... initialize module <m>
 	fini <m>     ... finalize module <m>
@@ -270,8 +275,7 @@ available commands are:
 	reboot       ... reboot device
 	reset        ... perform factory reset
 	help         ... print this info
-
-The command line interface supports rudimentary TAB completion (based on the first letter typed) and command line interface hints. Hints are especially useful to give instant riminders on the syntax of a specific command.
+```
 
 TODO
 ----
