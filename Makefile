@@ -4,10 +4,10 @@ TARGETS = src
 
 DIR := $(shell basename `pwd`)
 
-MAKECMDGOALS ?= debug
+MAKECMDGOALS ?= alpha
 MAKEFLAGS    += --silent
 
-debug release clean ota usb otalog usblog check stack upload esp07:
+alpha beta release clean ota usb otalog usblog check stack upload:
 	for TRG in $(TARGETS) ; do $(MAKE) --silent -C $$TRG $(MAKECMDGOALS) ; done
 
 new: clean all

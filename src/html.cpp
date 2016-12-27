@@ -158,22 +158,16 @@ void html_insert_root_content(String &html) {
   html += F(
     "<script src='root.js'></script>\n"
     "<form class='table'>\n"
-  );
-
-  html += F(
     "<h3>ADC</h3>\n"
     "<br />\n"
-    "<label for='adc' class='meter'>Value: </label>\n"
-    "<input id='adc' type='text' class='datetime' readonly />\n"
+    "<label for='adc' class='meter'>V =</label>\n"
+    "<input id='adc' type='text' class='meter' readonly />\n"
     "<br />\n"
     "<h3>Temperature</h3>\n"
     "<label for='temp' class='meter'>T =</label>\n"
     "<input id='temp' type='text' class='meter' readonly /> &deg;C\n"
     "</form>\n"
     "<br />\n"
-  );
-
-  html += F(
     "</form>\n"
   );
 

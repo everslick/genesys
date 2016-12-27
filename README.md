@@ -17,10 +17,11 @@ Main Features
 * cooperative multitasking for modules and tasks
 * built in UNIX like shell with top, ls, mv, ps, kill, ...
 * initial setup via soft accesspoint
+* mobile friendly webinterface
 * debug logs via UDP socket, serial port and file
 * disable logs when compiling RELEASE version
 * visualization of CPU load, memory usage and network traffic
-* over the air updates (via upload and ArduinoOTA)
+* over the air updates (push and pull)
 * support for websockets, MQTT, mDNS, SPIFFS, ...
 * millisecond precision NTP and RTC implementation
 * support static IP configuration as well as DHCP
@@ -136,50 +137,143 @@ deployment the following make targets can be used:
 - make clean (remove all object and dependency files for a fresh build)
 - make stack (paste a stack dump into vim to get a stacktrace)
 
-Setup
+SETUP
 -----
 After the ESP8266 has booted you can connect to the webinterface. Either via
 the soft accesspoint of the ESP or, if you have set up the default configuration
-properly, by its IP address or mDNS name. The soft accesspoint starts with a
-hardcoded SSID of esp-XXXXXX, XXXXXX being the last 3 bytes of the MAC address.
+properly, by its IP address or mDNS name. The soft accesspoint starts with the
+device name as SSID or, if non is set yet with a hardcoded SSID of ESP8266-XXXXXX,
+XXXXXX being the last 3 bytes of the MAC address.
 
 If no username and password have been set yet, the webserver will redirect to
 the initial configuration page. Here you can set the username/password for the
 webserver, the WiFi to connect to as well as the WPA2 password, and its network
 configuration (DHCP or static IP).
 
-![Initial Setup Page](https://cloud.githubusercontent.com/assets/1909551/15268288/e9aea0dc-19d9-11e6-9d4a-381ba123d03e.jpg)
+![setup](https://cloud.githubusercontent.com/assets/1909551/21504709/917e9814-cc61-11e6-85fd-81badd552d13.png)
 
 Pressing [Save] stores the configuration in the EEPROM (flash) and reboots the
 device. Connecting again will redirect you to the login page.
 
-![Login Page](https://cloud.githubusercontent.com/assets/1909551/15258780/b8ff3fe6-194d-11e6-8f3d-9ab61ec862d0.jpg)
-
+LOGIN
+-----
 After successful login you see the example hompage showing the firmware version,
 uptime, current time (UTC) and the actual value from the ADC. The page gets
 refreshed every two seconds.
 
-![Home Page](https://cloud.githubusercontent.com/assets/1909551/15258778/b8e6b23c-194d-11e6-841f-43ec02a8ce49.jpg)
+![login](https://cloud.githubusercontent.com/assets/1909551/21504710/9184c004-cc61-11e6-8096-2f77ef331566.png)
 
-Configuration
--------------
+HOME
+----
+The default home page shows the value of the ADC and the temperature of the RTC.
+These values are updated over constantly over websockets without the need for
+the page to be reloaded.
+
+![home](https://cloud.githubusercontent.com/assets/1909551/21504713/9196f85a-cc61-11e6-9ee5-856d65bba08e.png)
+
+CONF
+----
 The configuration page allows setting up of more parameters then was possible in
 the initial setup. Here you can also define the mDNS name, MQTT publishing
 intervals, or NTP servers.
 
-![Configuration Page](https://cloud.githubusercontent.com/assets/1909551/15258782/b90a8180-194d-11e6-8404-b343963755b6.jpg)
+![conf](https://cloud.githubusercontent.com/assets/1909551/21504715/91a3fa28-cc61-11e6-87f9-2b53b0fe9d44.png)
 
+SYS
+---
+The [SYS] page gives insights to the resources currently consumed (heap, cpu, net)
+and iallows individual modules to be loaded and unloaded at runtime.
+
+![sys](https://cloud.githubusercontent.com/assets/1909551/21504704/91656132-cc61-11e6-90bf-2968828e5a03.png)
+
+LOG
+---
+
+If the logger module is active the last loglines can be requested through the /log
+page. Additionally the logger module can log to a file or send each line to a
+remote host via UDP port 49152.
+
+![log](https://cloud.githubusercontent.com/assets/1909551/21504711/918d24ec-cc61-11e6-9e8e-c7ecf37c1bcd.png)
+
+INFO
+----
 When the firmware was not built as RELEASE version (by setting BUILD_RELEASE = 1
 in the Makefile or Makefile.config), there are additional pages accessable that
 provide information about the hardware and resource usage. For one there ist the
 [Info] page, that shows static information about the firmware and hardware.
 
-![Info Page](https://cloud.githubusercontent.com/assets/1909551/15258781/b9069de0-194d-11e6-8f8b-bfa347236899.jpg)
+![info](https://cloud.githubusercontent.com/assets/1909551/21504712/919394ee-cc61-11e6-8b06-f52e1345bc93.png)
 
-The [SYS] page gives insights to the resources currently consumed (heap, cpu, net)
-and shows the last 20 loglines.
+FILES
+-----
 
-![System Page](https://cloud.githubusercontent.com/assets/1909551/15258779/b8f6ccb2-194d-11e6-9cf8-c637fa1e35ec.jpg)
+The built in file browser allows access to the SPIFFS filesystem. Uploads are
+also supported.
+
+![files](https://cloud.githubusercontent.com/assets/1909551/21504714/919d3d46-cc61-11e6-9d96-61f0d61dfa06.png)
+
+CLOCK
+-----
+
+The system clock can be either synchronized over NTP, an I2C real time clock or
+with the browser time.
+
+![clock](https://cloud.githubusercontent.com/assets/1909551/21504716/91a8cf9e-cc61-11e6-8939-37a43af7ad7a.png)
+
+SHELL
+-----
+The command line interface is available over the serial console or via telnet.
+Some unix like commands are implemented already.
+
+![shell1](https://cloud.githubusercontent.com/assets/1909551/21504708/917a2c5c-cc61-11e6-852f-982608c73c75.png)
+
+![shell2](https://cloud.githubusercontent.com/assets/1909551/21504707/91725e28-cc61-11e6-9508-adf62a19103f.png)
+
+![shell3](https://cloud.githubusercontent.com/assets/1909551/21504706/916c7daa-cc61-11e6-948f-726b04c59ae1.png)
+
+![shell4](https://cloud.githubusercontent.com/assets/1909551/21504705/91680194-cc61-11e6-9a85-6d818c599b54.png)
+
+CLI
+---
+available commands are:
+	init <m>     ... initialize module <m>
+	fini <m>     ... finalize module <m>
+	state [m]    ... query state of module [m]
+	turbo [0|1]  ... switch cpu turbo mode on or off
+	conf <k|k=v> ... get or set config key <k>
+	save         ... save config to EEPROM
+	format       ... create / filesystem
+	ls           ... list filesystem content
+	cat <f>      ... print content of file <f>
+	rm <f>       ... remove file <f> from filesystem
+	mv <f> <t>   ... rename file <f> to file <t>
+	df           ... report file system disk space usage
+	ntp          ... set system time from ntp server
+	rtc          ... set system time from RTC
+	date [d]     ... get/set time [YYYY/MM/DD HH:MM:SS]
+	systohc      ... set RTC from system time
+	uptime       ... get system uptime
+	localtime    ... get local time
+	adc          ... read ADC value
+	toggle <p>   ... toggle GPIO pin <p>
+	high <p>     ... set GPIO pin <p> high
+	low <p>      ... set GPIO pin <p> low
+	flash <l>    ... flash led <l> once
+	pulse <l>    ... let led <l> blink
+	on <l>       ... switch led <l> on
+	off <l>      ... switch led <l> off
+	ping <h>     ... send 3 ICMP ping requests to host <h>
+	scan         ... scan WiFi for available accesspoints
+	ps           ... list all currently running tasks
+	kill <p>     ... terminate the task with PID <p>
+	top          ... show runtime system usage statistics
+	c64          ... 'hello, world!' demo
+	clear        ... clear screen
+	reboot       ... reboot device
+	reset        ... perform factory reset
+	help         ... print this info
+
+The command line interface supports rudimentary TAB completion (based on the first letter typed) and command line interface hints. Hints are especially useful to give instant riminders on the syntax of a specific command.
 
 TODO
 ----
