@@ -157,17 +157,15 @@ device. Connecting again will redirect you to the login page.
 
 LOGIN
 -----
-After successful login you see the example hompage showing the firmware version,
-uptime, current time (UTC) and the actual value from the ADC. The page gets
-refreshed every two seconds.
-
 ![login](https://cloud.githubusercontent.com/assets/1909551/21504710/9184c004-cc61-11e6-8096-2f77ef331566.png)
+
+After successful login you see the example hompage.
 
 HOME
 ----
 The default home page shows the value of the ADC and the temperature of the RTC.
-These values are updated over constantly over websockets without the need for
-the page to be reloaded.
+These values are updated constantly over websockets without the need for the
+page to be reloaded.
 
 ![home](https://cloud.githubusercontent.com/assets/1909551/21504713/9196f85a-cc61-11e6-9ee5-856d65bba08e.png)
 
