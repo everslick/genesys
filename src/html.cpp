@@ -54,9 +54,10 @@ static const char *conf_telemetry_content;
 static const char *conf_update_content;
 static const char *conf_footer;
 
+static const char *conf_logger_header;
+static const char *conf_logger_footer;
+
 static const char *conf_storage_header;
-static const char *conf_storage_values;
-static const char *conf_storage_interval;
 static const char *conf_storage_footer;
 
 static const char *websocket_content;
@@ -388,11 +389,34 @@ static int insert_conf_storage(String &html) {
 
   html += buf;
 
-  html += FPSTR(conf_storage_values);
-  html += FPSTR(conf_storage_interval);
   html += FPSTR(conf_storage_footer);
 
   return (len);
+}
+
+static int insert_conf_logger(String &html) {
+  char buf[600];
+
+  int len1 = snprintf_P(buf, sizeof (buf), conf_logger_header,
+    config->logger_enabled ? "" : "checked",
+    config->logger_enabled ? "checked" : "",
+    config->logger_channels
+  );
+
+  check_buffer_size(len1, sizeof (buf), F("logger conf"));
+
+  html += buf;
+
+  int len2 = snprintf_P(buf, sizeof (buf), conf_logger_footer,
+    IPAddress(config->logger_host).toString().c_str(),
+    config->logger_port
+  );
+
+  check_buffer_size(len2, sizeof (buf), F("logger conf"));
+
+  html += buf;
+
+  return (len1 + len2);
 }
 
 static int insert_conf_header(String &html) {
@@ -426,6 +450,7 @@ void html_insert_conf_content(String &html, int conf) {
   else if (conf == CONF_TELEMETRY) len = insert_conf_telemetry(html);
   else if (conf == CONF_UPDATE)    len = insert_conf_update(html);
   else if (conf == CONF_STORAGE)   len = insert_conf_storage(html);
+  else if (conf == CONF_LOGGER)    len = insert_conf_logger(html);
   else if (conf == CONF_FOOTER)    len = insert_conf_footer(html);
 
 #ifdef LOG_BUFFER_USAGE
@@ -1033,7 +1058,7 @@ bool html_init(void) {
     "  <hr />\n"
   );
 
-  conf_storage_values = PSTR(
+  conf_storage_footer = PSTR(
     "  <table cellspacing='0'>\n"
     "  <tr>\n"
     "    <th>Value:</th>\n"
@@ -1046,21 +1071,49 @@ bool html_init(void) {
     "  </tr>\n"
     "  </table>\n"
     "  <br />\n"
-  );
-
-  conf_storage_interval = PSTR(
     "  <label>Save Interval:</label>\n"
     "  <select class='medium'\n"
     "          id='storage_interval_sel'\n"
     "          onchange='storage_select_changed()'>\n"
     "  </select>\n"
     "  minute(s)\n"
-  );
-
-  conf_storage_footer = PSTR(
     "  <hr />\n"
     "  <label for='storage_capacity'>Capacity:</label>\n"
     "  <input id='storage_capacity' type='text' readonly />\n"
+    "</fieldset>\n"
+    "<br /><br />\n"
+  );
+
+  conf_logger_header = PSTR(
+    "<fieldset>\n"
+    "  <legend>Logger</legend>\n"
+    "  <input name='logger_enabled'  type='radio'  value='0' %s />Disabled"
+    "  <br />\n"
+    "  <input name='logger_enabled'  type='radio'  value='1' %s />Enabled"
+    "  <br />\n"
+    "  <input name='logger_channels' type='hidden' value='%i' />\n"
+    "  <hr />\n"
+  );
+
+  conf_logger_footer = PSTR(
+    "  <table cellspacing='0'>\n"
+    "  <tr>\n"
+    "    <th>Channel:</th>\n"
+    "  </tr>\n"
+    "  <tr>\n"
+    "    <td>\n"
+    "      <input id='logger_channel_0' type='checkbox' />Serial<br />\n"
+    "      <input id='logger_channel_1' type='checkbox' />Network<br />\n"
+    "      <input id='logger_channel_2' type='checkbox' />File<br />\n"
+    "    </td>\n"
+    "  </tr>\n"
+    "  </table>\n"
+    "  <hr />\n"
+    "  <label for='logger_host'>Host:</label>\n"
+    "  <input name='logger_host'     type='text'   value='%s' />\n"
+    "  <label for='logger_port'>Port:</label>\n"
+    "  <input name='logger_port'     type='number' value='%i'"
+    "    min='1' max='65535' />\n"
     "</fieldset>\n"
     "<br /><br />\n"
   );
@@ -1373,6 +1426,26 @@ bool html_init(void) {
     "  }\n"
     "}\n"
     "\n"
+    "function logger_enable_server() {\n"
+    "  var mask = get_element('logger_channels');\n"
+    "  var val = parseInt(mask.value) & (1<<1);\n"
+    "  \n"
+    "  set_disabled('logger_host', !val);\n"
+    "  set_disabled('logger_port', !val);\n"
+    "}\n"
+    "\n"
+    "function logger_channels_check() {\n"
+    "  var input = get_element('logger_channels');\n"
+    "  if (input == null) return;\n"
+    "  var mask = parseInt(input.value);\n"
+    "  \n"
+    "  for (var i=0; i<3; i++) {\n"
+    "    var elem = get_element('logger_channel_' + i);\n"
+    "    \n"
+    "    elem.checked = (mask & (1<<i));\n"
+    "  }\n"
+    "}\n"
+    "\n"
     "function wifi_elements() {\n"
     "  return new Array(\n"
     "    get_element('wifi_ssid_sel'),\n"
@@ -1425,6 +1498,14 @@ bool html_init(void) {
     "  ret.push(get_element('storage_capacity'));\n"
     "  return (ret);\n"
     "}\n"
+    "function logger_elements() {\n"
+    "  var ret = new Array(get_element('logger_host'));\n"
+    "  for (var i=0; i<3; i++) {\n"
+    "    ret.push(get_element('logger_channel_' + i));\n"
+    "  }\n"
+    "  ret.push(get_element('logger_port'));\n"
+    "  return (ret);\n"
+    "}\n"
     "function set_elements_inactive(elements, disabled) {\n"
     "  elements.forEach(function(elem) {\n"
     "    elem.disabled = disabled;\n"
@@ -1446,6 +1527,7 @@ bool html_init(void) {
     "  if (elem.name === 'telemetry_enabled') ev = telemetry_elements();\n"
     "  if (elem.name ===    'update_enabled') ev =    update_elements();\n"
     "  if (elem.name ===   'storage_enabled') ev =   storage_elements();\n"
+    "  if (elem.name ===    'logger_enabled') ev =    logger_elements();\n"
     "  \n"
     "  set_elements_inactive(ev, disabled);\n"
     "  \n"
@@ -1456,6 +1538,19 @@ bool html_init(void) {
     "    if (elem.checked) { val |= (1<<bit); } else { val &= ~(1<<bit); }\n"
     "    mask.value = val;\n"
     "    storage_calculate_capacity();\n"
+    "  }\n"
+    "  \n"
+    "  if (elem.id.substring(0, 15) == 'logger_channel_') {\n"
+    "    var mask = get_element('logger_channels');\n"
+    "    var bit = parseInt(elem.id.substring(15));\n"
+    "    var val = parseInt(mask.value);\n"
+    "    if (elem.checked) { val |= (1<<bit); } else { val &= ~(1<<bit); }\n"
+    "    mask.value = val;\n"
+    "    logger_enable_server();\n"
+    "  }\n"
+    "  \n"
+    "  if (!disabled && (elem.name === 'logger_enabled')) {\n"
+    "    logger_enable_server();\n"
     "  }\n"
     "}\n"
     "\n"
@@ -1474,11 +1569,14 @@ bool html_init(void) {
     "  set_inactive('telemetry_enabled', telemetry_elements());\n"
     "  set_inactive(   'update_enabled',    update_elements());\n"
     "  set_inactive(  'storage_enabled',   storage_elements());\n"
+    "  set_inactive(   'logger_enabled',    logger_elements());\n"
     "  \n"
     "  wifi_select_fill();\n"
     "  storage_select_fill();\n"
     "  storage_values_check();\n"
     "  storage_calculate_capacity();\n"
+    "  logger_channels_check();\n"
+    "  logger_enable_server();\n"
     "}\n"
   );
 

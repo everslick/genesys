@@ -152,8 +152,8 @@ static void *ptr(const String &name, int &type, int &min, int &max) {
   if (name == F("logger_channels"))    {
     type = INT8; min = 0; max = 7;     return (&config->logger_channels);
   }
-  if (name == F("logger_server"))      {
-    type = IP;                         return (&config->logger_server);
+  if (name == F("logger_host"))        {
+    type = IP;                         return (&config->logger_host);
   }
   if (name == F("logger_port"))        {
     type = INT32;                      return (&config->logger_port);
@@ -434,7 +434,7 @@ void config_export(String &str) {
   append_line(F("storage_mask"),       str);
   append_line(F("logger_enabled"),     str);
   append_line(F("logger_channels"),    str);
-  append_line(F("logger_server"),      str);
+  append_line(F("logger_host"),        str);
   append_line(F("logger_port"),        str);
   append_line(F("mdns_enabled"),       str);
   append_line(F("webserver_enabled"),  str);
@@ -519,7 +519,7 @@ void config_reset(void) {
   config->logger_enabled            = DEFAULT_LOGGER_ENABLED;
 #endif
   config->logger_channels           = DEFAULT_LOGGER_CHANNELS;
-  write_ip(&config->logger_server   , DEFAULT_LOGGER_SERVER);
+  write_ip(&config->logger_host     , DEFAULT_LOGGER_HOST);
   config->logger_port               = DEFAULT_LOGGER_PORT;
 
   // general switches

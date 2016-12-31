@@ -641,9 +641,6 @@ static void handle_conf_cb(void) {
 
       html_insert_conf_content(html, CONF_IP);
       send_page_chunk(html);
-
-      html_insert_conf_content(html, CONF_STORAGE);
-      send_page_chunk(html);
     } else {
       // [CONF]
 
@@ -656,10 +653,16 @@ static void handle_conf_cb(void) {
       html_insert_conf_content(html, CONF_TELEMETRY);
       send_page_chunk(html);
 
+      html_insert_conf_content(html, CONF_STORAGE);
+      send_page_chunk(html);
+
       html_insert_conf_content(html, CONF_MDNS);
       send_page_chunk(html);
 
       html_insert_conf_content(html, CONF_UPDATE);
+      send_page_chunk(html);
+
+      html_insert_conf_content(html, CONF_LOGGER);
       send_page_chunk(html);
     }
 

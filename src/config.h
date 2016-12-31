@@ -75,7 +75,7 @@ struct Config {
   // debug logs
   uint8_t  logger_enabled;     // start logger
   uint8_t  logger_channels;    // bitmask for different log channels
-  uint32_t logger_server;      // ip of network log server
+  uint32_t logger_host;        // ip of network log server
   uint32_t logger_port;        // port of network log server
 
   // general switches

@@ -195,7 +195,7 @@ static bool udp_write(const char *str, uint16_t len) {
 static void udp_begin(void) {
   if (!p || !net_connected()) return;
 
-  if (p->udp_host && p->udp_port) {
+  if (p->udp_host && p->udp_port && (p->log_channels | LOG_CHANNEL_NETWORK)) {
     IPAddress ip(p->udp_host);
 
     p->udp = new WiFiUDP();
@@ -284,7 +284,7 @@ bool logger_init(void) {
   // init channels
   p->log_channels = config->logger_channels;
 
-  p->udp_host = config->logger_server;
+  p->udp_host = config->logger_host;
   p->udp_port = config->logger_port;
 
   udp_begin();
