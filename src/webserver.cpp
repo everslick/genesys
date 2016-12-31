@@ -459,6 +459,20 @@ static void handle_update_finished_cb(void) {
   html = "";
 }
 
+static void handle_update_error(void) {
+  StreamString out;
+  String err;
+
+  Update.printError(out);
+  err = out.readString();
+  err.replace("\r", "");
+  err.replace("\n", "");
+
+  log_print(err.c_str());
+
+  led_off(LED_GRN);
+}
+
 static void handle_update_progress_cb(void) {
   uint32_t free_space = (system_free_sketch_space() - 0x1000) & 0xFFFFF000;
   HTTPUpload &upload = p->webserver->upload();
@@ -476,17 +490,13 @@ static void handle_update_progress_cb(void) {
     log_print(F("HTTP: filename: %s"), upload.filename.c_str());
 
     if (!Update.begin(free_space)) {
-      Update.printError(out);
-      log_print(out.readString().c_str());
+      handle_update_error();
     }
 
     led_off(LED_GRN);
   } else if (upload.status == UPLOAD_FILE_WRITE) {
     if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
-      Update.printError(out);
-      log_print(out.readString().c_str());
-
-      led_off(LED_GRN);
+      handle_update_error();
     } else {
       received += upload.currentSize;
 
@@ -505,10 +515,7 @@ static void handle_update_progress_cb(void) {
 
       led_on(LED_GRN);
     } else {
-      Update.printError(out);
-      log_print(out.readString().c_str());
-
-      led_off(LED_GRN);
+      handle_update_error();
     }
   }
 }
